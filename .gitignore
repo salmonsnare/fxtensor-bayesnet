@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 仮想環境
+.venv/
+venv/
+env/
+
+# 実行時の生成物（examples などで実行したときの出力）
+results.json
+results.md
+model.mmd
+history/
+
+# エディタ・OS
+.vscode/
+.idea/
+.DS_Store
