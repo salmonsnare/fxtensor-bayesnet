@@ -133,5 +133,5 @@
       "focus": ["load", "age", "service", "wear"]
     }
   ],
-  "outputs": ["wear", "vibration", "temp", "failure"]
+  "outputs": ["vibration", "temp", "failure"]
 }

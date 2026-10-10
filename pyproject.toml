@@ -22,8 +22,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+plot = [
+    "matplotlib>=3.5",
+]
 dev = [
     "pytest",
+    "matplotlib>=3.5",
 ]
 
 [project.scripts]

@@ -47,6 +47,17 @@ def render_mermaid(cfg):
     for v, spec in cfg["kernels"].items():
         for p in spec["parents"]:
             L.append(f"  {safe(p)} --> {safe(v)}")
+    # 根・中間・出力の色分け（図の PNG と同じ配色）
+    outputs = set(cfg.get("outputs") or [v for v in V if v not in cfg["priors"]])
+    kinds = {"root": [v for v in V if v in cfg["priors"]],
+             "middle": [v for v in V if v not in cfg["priors"] and v not in outputs],
+             "output": [v for v in V if v not in cfg["priors"] and v in outputs]}
+    styles = {"root": "fill:#cfe3f7,stroke:#3b78b5", "middle": "fill:#e6e6e6,stroke:#777777",
+              "output": "fill:#fde2c4,stroke:#d9822b"}
+    for k, vs in kinds.items():
+        if vs:
+            L.append(f"  classDef {k} {styles[k]}")
+            L.append(f"  class {','.join(safe(v) for v in vs)} {k}")
     return "\n".join(L) + "\n"
 
 
