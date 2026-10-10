@@ -1,20 +1,34 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "fxtensor-bayesnet"
-version = "0.1.0"
-description = "設定ファイル駆動の離散ベイジアンネットワーク推論ツール（fxtensor-salmon 使用）"
+version = "0.9.0"
+description = "Config-driven inference for discrete Bayesian networks: scenario comparison, Bayesian updating, root-cause inference and daily snapshots (built on fxtensor-salmon)"
 readme = "README.md"
 requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
-  { name = "Tadachika Oki" },
+  { name = "Tadachika Oki", email = "sakesnare@gmail.com" },
+]
+keywords = [
+    "bayesian-network", "probabilistic-graphical-model", "markov-kernel", "conditional-probability",
+    "bayesian-inference", "scenario-analysis", "decision-support", "fxtensor",
 ]
 classifiers = [
-    "Private :: Do Not Upload",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Natural Language :: Japanese",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = [
     "numpy>=1.20.0",
@@ -29,6 +43,12 @@ dev = [
     "pytest",
     "matplotlib>=3.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/salmonsnare/fxtensor-bayesnet"
+Repository = "https://github.com/salmonsnare/fxtensor-bayesnet"
+Issues = "https://github.com/salmonsnare/fxtensor-bayesnet/issues"
+Changelog = "https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/CHANGELOG.md"
 
 [project.scripts]
 fxtensor-bayesnet = "fxtensor_bayesnet.cli:main"

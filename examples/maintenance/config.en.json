@@ -1,0 +1,137 @@
+{
+  "as_of": "2026-10-10",
+  "horizon": "Next 30 days",
+  "note": "Example. All probabilities are illustrative assumptions, not estimated from real equipment data.",
+  "variables": {
+    "load": {
+      "name": "Operating load",
+      "labels": ["Low", "Medium", "High"]
+    },
+    "age": {
+      "name": "Equipment age",
+      "labels": ["New", "Mid-life", "Old"]
+    },
+    "service": {
+      "name": "Scheduled maintenance",
+      "labels": ["On schedule", "Delayed"]
+    },
+    "wear": {
+      "name": "Component wear (intermediate)",
+      "labels": ["Low", "Medium", "High"]
+    },
+    "vibration": {
+      "name": "Vibration sensor",
+      "labels": ["Normal", "Warning", "Abnormal"]
+    },
+    "temp": {
+      "name": "Bearing temperature",
+      "labels": ["Normal", "Elevated"]
+    },
+    "failure": {
+      "name": "Failure",
+      "labels": ["None", "Minor", "Shutdown"]
+    }
+  },
+  "priors": {
+    "load": {
+      "p": [0.25, 0.5, 0.25],
+      "reason": "Production plan centred on medium load"
+    },
+    "age": {
+      "p": [0.3, 0.45, 0.25],
+      "reason": "Age mix of the installed equipment"
+    },
+    "service": {
+      "p": [0.8, 0.2],
+      "reason": "Recent maintenance completion rate"
+    }
+  },
+  "kernels": {
+    "wear": {
+      "parents": ["load", "age", "service"],
+      "reason": "Map load (0..2) + age (0..2) + delayed maintenance (0/1), s=0..5, to wear",
+      "cpt": {
+        "Low|New|On schedule": [0.85, 0.13, 0.02],
+        "Low|New|Delayed": [0.7, 0.25, 0.05],
+        "Low|Mid-life|On schedule": [0.7, 0.25, 0.05],
+        "Low|Mid-life|Delayed": [0.5, 0.38, 0.12],
+        "Low|Old|On schedule": [0.5, 0.38, 0.12],
+        "Low|Old|Delayed": [0.3, 0.45, 0.25],
+        "Medium|New|On schedule": [0.7, 0.25, 0.05],
+        "Medium|New|Delayed": [0.5, 0.38, 0.12],
+        "Medium|Mid-life|On schedule": [0.5, 0.38, 0.12],
+        "Medium|Mid-life|Delayed": [0.3, 0.45, 0.25],
+        "Medium|Old|On schedule": [0.3, 0.45, 0.25],
+        "Medium|Old|Delayed": [0.15, 0.45, 0.4],
+        "High|New|On schedule": [0.5, 0.38, 0.12],
+        "High|New|Delayed": [0.3, 0.45, 0.25],
+        "High|Mid-life|On schedule": [0.3, 0.45, 0.25],
+        "High|Mid-life|Delayed": [0.15, 0.45, 0.4],
+        "High|Old|On schedule": [0.15, 0.45, 0.4],
+        "High|Old|Delayed": [0.07, 0.33, 0.6]
+      }
+    },
+    "vibration": {
+      "parents": ["wear"],
+      "reason": "Vibration increases with wear",
+      "cpt": {
+        "Low": [0.9, 0.08, 0.02],
+        "Medium": [0.6, 0.3, 0.1],
+        "High": [0.2, 0.4, 0.4]
+      }
+    },
+    "temp": {
+      "parents": ["wear", "load"],
+      "reason": "Wear and load increase heat",
+      "cpt": {
+        "Low|Low": [0.97, 0.03],
+        "Low|Medium": [0.94, 0.06],
+        "Low|High": [0.88, 0.12],
+        "Medium|Low": [0.88, 0.12],
+        "Medium|Medium": [0.8, 0.2],
+        "Medium|High": [0.68, 0.32],
+        "High|Low": [0.65, 0.35],
+        "High|Medium": [0.5, 0.5],
+        "High|High": [0.35, 0.65]
+      }
+    },
+    "failure": {
+      "parents": ["wear", "temp"],
+      "reason": "High wear and high temperature make shutdown likely",
+      "cpt": {
+        "Low|Normal": [0.97, 0.025, 0.005],
+        "Low|Elevated": [0.9, 0.08, 0.02],
+        "Medium|Normal": [0.9, 0.08, 0.02],
+        "Medium|Elevated": [0.75, 0.18, 0.07],
+        "High|Normal": [0.7, 0.2, 0.1],
+        "High|Elevated": [0.4, 0.3, 0.3]
+      }
+    }
+  },
+  "scenarios": {
+    "A: Peak season (high load)": {
+      "load": [0.1, 0.4, 0.5]
+    },
+    "B: Stronger maintenance": {
+      "service": [0.97, 0.03]
+    }
+  },
+  "observations": [
+    {
+      "var": "vibration",
+      "label": "Abnormal",
+      "focus": ["load", "age", "service"]
+    },
+    {
+      "var": "failure",
+      "label": "Shutdown",
+      "focus": ["load", "age", "service"]
+    },
+    {
+      "var": "temp",
+      "label": "Elevated",
+      "focus": ["load", "age", "service", "wear"]
+    }
+  ],
+  "outputs": ["vibration", "temp", "failure"]
+}

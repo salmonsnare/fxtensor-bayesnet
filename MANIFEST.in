@@ -1,0 +1,7 @@
+include LICENSE README.md README-ja.md CHANGELOG.md
+recursive-include examples *.json
+recursive-include tests *.py
+include docs/make_images.py
+prune docs/images
+global-exclude __pycache__ *.py[cod] results.json results.md model.mmd
+prune **/history

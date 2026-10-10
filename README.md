@@ -1,101 +1,109 @@
 # fxtensor-bayesnet
 
-設定ファイル駆動の離散ベイジアンネットワーク推論ツール（[fxtensor-salmon](https://github.com/salmonsnare/fxtensor-salmon) 使用）。
+**English** | [日本語](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/README-ja.md)
 
-## 概要
+A config-driven inference tool for discrete Bayesian networks, built on [fxtensor-salmon](https://github.com/salmonsnare/fxtensor-salmon).
 
-本ツールは、事象間の因果関係を条件付き確率で表現し、全体への影響を定量的に評価する意思決定支援ツールです。前提条件や確率は設定ファイルで管理するため、システムを改修することなく迅速に見直せます。複数シナリオの比較分析に加え、観測された結果から要因を逆算する分析にも対応しています。日次で設定と結果を記録するため、判断の根拠と変化の経緯を継続的に追跡できます。
+## Overview
 
-仕組み：
+fxtensor-bayesnet is a decision-support tool that expresses cause-and-effect relationships between events as conditional probabilities and quantifies their overall impact. Assumptions and probabilities live in a configuration file, so they can be revised quickly without changing any code. It supports comparing multiple scenarios as well as working backwards from observed outcomes to their likely causes. Because the configuration and results can be recorded daily, the rationale behind each judgement and how it changed over time can be tracked continuously.
 
-- 各変数は有限個のラベル（例：`晴れ / 曇り / 厚い雲`）をとる離散変数です。
-- 親を持たない変数（根）には事前分布、子の変数には「親のラベルの組合せ → 子の分布」の条件付き確率表（マルコフ核）を書きます。
-- fxtensor-salmon の `FXTensor` で状態と核を合成して同時分布を作り、シナリオごとの周辺分布、観測による条件付け（ベイズ更新）、`bayesian_inversion` による根の要因の逆算を計算します。
-- 毎回、ライブラリでの計算結果を numpy `einsum` の直接計算と突き合わせ、ずれがあれば停止します（結果の `検算` 欄）。
-- 同時分布の要素数が 200 万を超えると、自動的に「祖先集合だけの einsum」計算に切り替わります（結果は同じ）。
-- `--plot` でネットワーク構造図・シナリオ比較・ベイズ更新・前回からの変化量の図を PNG / SVG で出力できます（matplotlib が必要）。
+How it works:
 
-> 設定に書く確率は利用者の仮定です。結果は仮定の帰結であり、仮定そのものの正しさは保証しません。
+- Each variable is discrete and takes one of a finite set of labels (e.g. `Clear / Cloudy / Overcast`).
+- Variables without parents (roots) get a prior distribution; child variables get a conditional probability table ("parent label combination → child distribution", i.e. a Markov kernel).
+- The joint distribution is built by composing states and kernels with fxtensor-salmon's `FXTensor`. From it the tool computes marginals per scenario, conditioning on observations (Bayesian updating), and root-cause inference via `bayesian_inversion`.
+- On every run, results computed with the library are cross-checked against a direct numpy `einsum` computation; any mismatch stops the run (see the `検算` ("checks") field of the results).
+- When the joint distribution would exceed 2 million entries, the tool automatically switches to computing over ancestor sets only (same results).
+- `--plot` renders the network structure, scenario comparison, Bayesian updates and day-over-day changes as PNG / SVG (requires matplotlib).
 
-## インストール
+> The probabilities in a config are the user's assumptions. The results are consequences of those assumptions; the tool does not validate the assumptions themselves.
 
-Python 3.8 以上。依存は `numpy` と `fxtensor-salmon`（PyPI から入ります）。図を出すときだけ `matplotlib` が必要で、extra `plot` で入ります。
+## Installation
+
+Python 3.8 or later. Install from PyPI:
+
+```bash
+pip install fxtensor-bayesnet            # core (pulls in numpy and fxtensor-salmon)
+pip install "fxtensor-bayesnet[plot]"    # with figures (adds matplotlib)
+```
+
+For development:
 
 ```bash
 git clone https://github.com/salmonsnare/fxtensor-bayesnet.git
 cd fxtensor-bayesnet
 python3 -m venv .venv
 . .venv/bin/activate
-pip install -e '.[dev]'     # 開発用（pytest・matplotlib 付き）
-# 利用だけなら：pip install .        図も使うなら：pip install '.[plot]'
-pytest                      # テスト
+pip install -e ".[dev]"     # includes pytest and matplotlib
+pytest
 ```
 
-このリポジトリはプライベートなので、`pip install git+https://github.com/salmonsnare/fxtensor-bayesnet.git` で直接入れる場合も GitHub の認証（`gh auth login` など）が必要です。PyPI には公開していません。
+## Quick start
 
-## 使い方（すぐ試す）
+Example configs live in `examples/` (they are not part of the PyPI package, so fetch them from the repository).
 
 ```bash
-fxtensor-bayesnet --config examples/weather/config.json --check
-fxtensor-bayesnet --config examples/weather/config.json --no-write --md
-fxtensor-bayesnet --config examples/maintenance/config.json --md
-fxtensor-bayesnet --config examples/weather/config.json --no-write --plot --out-dir out/   # 図だけ out/ に
-# python -m fxtensor_bayesnet ... でも同じ
+curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/examples/weather/config.en.json
+fxtensor-bayesnet --check                            # defaults to ./config.json
+fxtensor-bayesnet --no-write --md --lang en          # Markdown to stdout
+fxtensor-bayesnet --no-write --plot --lang en --out-dir out/   # figures only, into out/
+# python -m fxtensor_bayesnet ... works the same way
 ```
 
-## config の書き方
+## Writing a config
 
-設定は JSON 1 ファイルです。最小例：
+A config is a single JSON file. Minimal example:
 
 ```json
 {
   "as_of": "2026-10-10",
-  "horizon": "翌日",
-  "note": "全確率は仮定値",
+  "horizon": "Next day",
+  "note": "All probabilities are assumptions",
   "variables": {
-    "cloud": {"name": "雲量", "labels": ["晴れ", "曇り"]},
-    "rain":  {"name": "降水", "labels": ["なし", "あり"]}
+    "cloud": {"name": "Cloud cover", "labels": ["Clear", "Cloudy"]},
+    "rain":  {"name": "Precipitation", "labels": ["None", "Some"]}
   },
   "priors": {
-    "cloud": {"p": [0.6, 0.4], "reason": "根拠のメモ（任意）"}
+    "cloud": {"p": [0.6, 0.4], "reason": "free-text rationale (optional)"}
   },
   "kernels": {
     "rain": {
       "parents": ["cloud"],
-      "reason": "根拠のメモ（任意）",
+      "reason": "free-text rationale (optional)",
       "cpt": {
-        "晴れ": [0.95, 0.05],
-        "曇り": [0.6, 0.4]
+        "Clear": [0.95, 0.05],
+        "Cloudy": [0.6, 0.4]
       }
     }
   },
   "scenarios": {
-    "A:曇りがち": {"cloud": [0.2, 0.8]}
+    "A: Mostly cloudy": {"cloud": [0.2, 0.8]}
   },
   "observations": [
-    {"var": "rain", "label": "あり", "focus": ["cloud"]}
+    {"var": "rain", "label": "Some", "focus": ["cloud"]}
   ],
   "outputs": ["rain"]
 }
 ```
 
-| キー | 必須 | 内容 |
+| Key | Required | Meaning |
 |---|---|---|
-| `as_of` | ○ | 基準日（`YYYY-MM-DD`）。スナップショットのフォルダ名になる |
-| `horizon` / `note` | | 見通しの期間・注意書き（結果に表示） |
-| `variables` | ○ | 変数名 → `{"name": 表示名, "labels": [ラベル…]}`。ラベルは 2 個以上・重複なし |
-| `priors` | ○ | 根の変数 → `{"p": [各ラベルの確率], "reason": 任意}`。和は 1 |
-| `kernels` | ○ | 子の変数 → `{"parents": [親…], "cpt": {...}, "reason": 任意}` |
-| `scenarios` | | シナリオ名 → `{根の変数: 差し替える事前分布}`。「基本」は自動で入る |
-| `observations` | | `{"var", "label", "focus"}`。`var=label` を観測したときの事後を計算。`focus` の変数は事前→事後の動き（差・全変動距離 TV・KL）と動きの大きさ順を出す（省略時は根すべて） |
-| `outputs` | | 結果表に出す変数（省略時は根以外すべて） |
+| `as_of` | yes | Reference date (`YYYY-MM-DD`); used as the snapshot folder name |
+| `horizon` / `note` | | Forecast horizon and a note (shown in the results) |
+| `variables` | yes | Variable → `{"name": display name, "labels": [labels…]}`. At least 2 labels, no duplicates |
+| `priors` | yes | Root variable → `{"p": [probability per label], "reason": optional}`. Must sum to 1 |
+| `kernels` | yes | Child variable → `{"parents": [parents…], "cpt": {...}, "reason": optional}` |
+| `scenarios` | | Scenario name → `{root variable: replacement prior}`. A base scenario is always included |
+| `observations` | | `{"var", "label", "focus"}`. Computes posteriors given `var=label`. For the `focus` variables it also reports prior→posterior movement (difference, total variation distance TV, KL) and ranks them by movement (defaults to all roots) |
+| `outputs` | | Variables shown in the result tables (defaults to all non-root variables) |
 
-`cpt` の書き方：
+Writing a `cpt`:
 
-- キーは親のラベルを `parents` の順に `|` でつないだもの（例：親が `["load", "age"]` なら `"高|老朽"`）。
-- 値は子のラベル順の確率で、各行の和は 1。
-- 親のラベルの全組合せの行が必要です（足りない・余分な行は `--check` でエラー）。
-- 各変数は `priors` か `kernels` のどちらか一方にだけ書きます。循環は不可。変数は最大 52 個。
+- Each key joins the parents' labels with `|`, in `parents` order (e.g. with parents `["load", "age"]`: `"High|Old"`).
+- Each value lists probabilities in the child's label order; every row must sum to 1.
+- Every combination of parent labels needs a row (missing or extra rows are reported by `--check`).
+- Each variable goes in exactly one of `priors` or `kernels`. No cycles. Up to 52 variables.
 
 ## CLI
 
@@ -103,78 +111,79 @@ fxtensor-bayesnet --config examples/weather/config.json --no-write --plot --out-
 fxtensor-bayesnet [--config PATH] [options]
 ```
 
-| オプション | 内容 |
+| Option | Meaning |
 |---|---|
-| `--config PATH` | 設定ファイル（既定：カレントディレクトリの `config.json`） |
-| `--check` | 設定の検証だけ行う（各行の和=1、欠けた・余分な行、未定義の親、循環など）。エラーは全件表示し終了コード 2 |
-| `--no-write` | `results.json` / `results.md` / `model.mmd` を書かず、標準出力だけにする |
-| `--md` | 標準出力を Markdown にする（既定は JSON） |
-| `--snapshot` | 設定と結果を `<history-dir>/<as_of>/` に保存（既存なら終了コード 1） |
-| `--force` | `--snapshot` の上書きを許可 |
-| `--diff [PATH]` | 前回スナップショットとの差分（設定の変更点＋結果の 0.1pt 以上の変化）。PATH 省略時は `as_of` より前で最新の日付 |
-| `--format-config` | 設定ファイルを読みやすい形（核の 1 行＝1 行）に整形して書き戻す |
-| `--out-dir DIR` | 結果ファイルの出力先（既定：設定ファイルと同じフォルダ） |
-| `--history-dir DIR` | スナップショットの保存先（既定：設定ファイルと同じフォルダの `history/`） |
-| `--plot` | 図を `--out-dir` に出力（下記）。`--no-write` と併用しても図は書く。`--check` のときは無視 |
-| `--plot-format F…` | 図の形式 `png` / `svg`（複数指定可。既定 `png`） |
-| `--plot-dpi N` | PNG の解像度（既定 150） |
+| `--config PATH` | Config file (default: `config.json` in the current directory) |
+| `--check` | Validate the config only (rows sum to 1, missing/extra rows, undefined parents, cycles, …). Reports all errors and exits with code 2 |
+| `--no-write` | Do not write `results.json` / `results.md` / `model.mmd`; print to stdout only |
+| `--md` | Print Markdown instead of JSON |
+| `--lang ja\|en` | Language of Markdown and figure titles/legends (default `ja`). The keys in `results.json` are fixed regardless of language |
+| `--snapshot` | Save the config and results to `<history-dir>/<as_of>/` (exit code 1 if it already exists) |
+| `--force` | Allow `--snapshot` to overwrite |
+| `--diff [PATH]` | Diff against the previous snapshot (config changes plus result changes of 0.1 pt or more). Without PATH, the latest date before `as_of` is used |
+| `--format-config` | Rewrite the config in a readable layout (one kernel row per line) |
+| `--out-dir DIR` | Where results and figures go (default: the config's folder) |
+| `--history-dir DIR` | Where snapshots go (default: `history/` next to the config) |
+| `--plot` | Write figures to `--out-dir` (see below). Figures are written even with `--no-write`; ignored with `--check` |
+| `--plot-format F…` | Figure format(s): `png` / `svg` (several allowed; default `png`) |
+| `--plot-dpi N` | PNG resolution (default 150) |
 
-出力ファイル：
+Output files:
 
-- `results.json` … 事前分布、シナリオ別の周辺分布、ベイズ更新、検算
-- `results.md` … シナリオ比較表とベイズ更新の要約
-- `model.mmd` … 変数と経路の構造図（mermaid。根・中間・出力を色分け）
+- `results.json` – priors, marginals per scenario, Bayesian updates, checks
+- `results.md` – scenario tables and a summary of the Bayesian updates
+- `model.mmd` – network structure as mermaid (roots, intermediate and output variables colour-coded)
 
-### 図の出力（`--plot`）
+### Figures (`--plot`)
 
-matplotlib が必要です（`pip install 'fxtensor-bayesnet[plot]'`）。入っていない状態で `--plot` を付けると、入れ方を表示して終了コード 3 で終わります（図を使わない機能は matplotlib なしで動きます）。
+Requires matplotlib (`pip install "fxtensor-bayesnet[plot]"`). If it is missing, `--plot` prints installation instructions and exits with code 3 (everything else works without matplotlib).
 
-| ファイル | 内容 | 出るとき |
+| File | Contents | When |
 |---|---|---|
-| `network.png` | ネットワーク構造図。根（青）・中間変数（灰）・出力変数（橙）を色分けし、階層レイアウトで描く（graphviz 不要） | 通常の実行 |
-| `marginals.png` | 出力変数ごとの周辺分布の棒グラフ。シナリオを並べて比較 | 通常の実行 |
-| `updates.png` | 観測ごとに、注目変数の事前・事後を並べた棒グラフ（全変動距離 TV 付き） | `observations` があるとき |
-| `diff.png` | 前回スナップショットからの周辺分布の変化量（pt）。シナリオごと | `--diff --plot` で、前回の `results.json` があるとき |
+| `network.png` | Network structure. Roots (blue), intermediate (grey) and output variables (orange), drawn with a layered layout (no graphviz needed) | normal run |
+| `marginals.png` | Bar charts of each output variable's marginal, scenarios side by side | normal run |
+| `updates.png` | For each observation, prior vs posterior of the focus variables (with TV distance) | when `observations` is set |
+| `diff.png` | Change in marginals (pt) since the previous snapshot, per scenario | `--diff --plot` with a previous `results.json` |
 
 ```bash
-fxtensor-bayesnet --plot                          # 結果ファイル＋図（network / marginals / updates）
-fxtensor-bayesnet --plot --plot-format png svg    # PNG と SVG の両方
-fxtensor-bayesnet --no-write --plot --out-dir figs/
-fxtensor-bayesnet --diff --plot                   # 前回との差分＋ diff.png
+fxtensor-bayesnet --plot                          # results + figures (network / marginals / updates)
+fxtensor-bayesnet --plot --plot-format png svg    # both PNG and SVG
+fxtensor-bayesnet --no-write --plot --lang en --out-dir figs/
+fxtensor-bayesnet --diff --plot                   # diff + diff.png
 ```
 
-日本語フォントは Noto Sans CJK JP・IPAexGothic・Hiragino Sans・Yu Gothic・Meiryo などから自動で選びます。見つからない場合は警告を出して既定フォントで描きます（日本語が表示されないことがあります）。使うフォントは環境変数 `FXTENSOR_BAYESNET_FONT` で指定できます。SVG は文字をパスにして保存するので、閲覧環境のフォントに左右されません。
+A font that can display Japanese (Noto Sans CJK JP, IPAexGothic, Hiragino Sans, Yu Gothic, Meiryo, …) is picked automatically so that Japanese labels render. If none is found, a warning is issued and the default font is used. Set the `FXTENSOR_BAYESNET_FONT` environment variable to choose a font. SVGs store text as paths, so they don't depend on the viewer's fonts.
 
-### 日次の運用例
+### Daily workflow
 
 ```bash
-cd my-model/                       # config.json があるフォルダ
-# 1. config.json の as_of・priors・必要なら kernels を更新
-fxtensor-bayesnet --check          # 検証
-fxtensor-bayesnet --diff           # 前回との差分
-fxtensor-bayesnet --snapshot --md  # 実行して results.* を更新し history/<as_of>/ に記録
-fxtensor-bayesnet --plot --no-write  # 図を更新
+cd my-model/                         # folder containing config.json
+# 1. update as_of, priors and (if needed) kernels in config.json
+fxtensor-bayesnet --check            # validate
+fxtensor-bayesnet --diff             # changes since the previous snapshot
+fxtensor-bayesnet --snapshot --md    # run, update results.*, record history/<as_of>/
+fxtensor-bayesnet --plot --no-write  # refresh figures
 ```
 
-## 例
+## Examples
 
-`examples/` に 2 つの例題があります（確率は説明用の仮定値）。下の図は `python docs/make_images.py` で実際に生成したもので、`docs/images/` にあります。
+`examples/` has two examples (probabilities are illustrative). Each comes as a Japanese `config.json` and a numerically identical English `config.en.json`. The figures below were generated from the English configs with `python docs/make_images.py` and are stored in `docs/images/en/` (Japanese versions in `docs/images/`).
 
-### 天気（`examples/weather/config.json`）
+### Weather (`examples/weather/config.en.json`)
 
-- シナリオ：「A:台風接近」「B:乾燥した晴天続き」
-- 観測：`rain=大雨`、`traffic=渋滞`、`event=中止` から気圧配置・湿度を逆算
+- Scenarios: "A: Typhoon approaching", "B: Dry spell"
+- Observations: infer the pressure pattern and humidity from `rain=Heavy`, `traffic=Jammed`, `event=Cancelled`
 
-構造（mermaid。GitHub ではそのまま図として表示されます）：
+Structure (mermaid; rendered as a diagram on GitHub):
 
 ```mermaid
 graph TD
-  pressure["pressure: 気圧配置<br/>高気圧/前線停滞/低気圧接近"]
-  humidity["humidity: 湿度<br/>低/中/高"]
-  cloud["cloud: 雲量<br/>晴れ/曇り/厚い雲"]
-  rain["rain: 降水<br/>なし/小雨/大雨"]
-  event["event: 屋外イベント<br/>予定通り/短縮/中止"]
-  traffic["traffic: 道路交通<br/>順調/やや混雑/渋滞"]
+  pressure["pressure: Pressure pattern<br/>High pressure/Stationary front/Low approaching"]
+  humidity["humidity: Humidity<br/>Low/Medium/High"]
+  cloud["cloud: Cloud cover<br/>Clear/Cloudy/Overcast"]
+  rain["rain: Precipitation<br/>None/Light/Heavy"]
+  event["event: Outdoor event<br/>As planned/Shortened/Cancelled"]
+  traffic["traffic: Road traffic<br/>Smooth/Busy/Jammed"]
   pressure --> cloud
   humidity --> cloud
   cloud --> rain
@@ -185,39 +194,40 @@ graph TD
   class pressure,humidity root
   classDef output fill:#fde2c4,stroke:#d9822b
   class cloud,rain,event,traffic output
+
 ```
 
-ネットワーク構造図（`--plot` の `network.png`）：
+Network structure (`network.png` from `--plot`):
 
-![天気：ネットワーク構造](docs/images/weather_network.png)
+![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_network.png)
 
-周辺分布のシナリオ比較（`marginals.png`）：
+Marginals by scenario (`marginals.png`):
 
-![天気：周辺分布のシナリオ比較](docs/images/weather_marginals.png)
+![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_marginals.png)
 
-ベイズ更新の事前・事後（`updates.png`）。たとえば「大雨」を観測すると、気圧配置の「低気圧接近」が 25% → 67% に上がります：
+Bayesian update, prior vs posterior (`updates.png`). For example, observing heavy rain raises "Low approaching" for the pressure pattern from 25% to 67%:
 
-![天気：ベイズ更新](docs/images/weather_updates.png)
+![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_updates.png)
 
-前回からの変化量（`--diff --plot` の `diff.png`）。翌日に気圧配置と湿度の事前分布を見直した場合の例です。A・B は気圧配置（B は湿度も）をシナリオで上書きしているため、その分だけ変化が小さく（B は変化なし）なります：
+Day-over-day change (`diff.png` from `--diff --plot`): the next day, the pressure and humidity priors are revised. Scenarios A and B override the pressure prior (B also humidity), so they change less (B not at all):
 
-![天気：前回からの変化量](docs/images/weather_diff.png)
+![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_diff.png)
 
-### 設備保全（`examples/maintenance/config.json`）
+### Equipment maintenance (`examples/maintenance/config.en.json`)
 
-- シナリオ：「A:繁忙期（高負荷）」「B:保守体制の強化」
-- 観測：`vibration=異常`、`failure=停止`、`temp=上昇` から負荷・年数・保守状況を逆算
-- `wear`（部品摩耗）は `outputs` に入れていない中間変数なので、構造図では灰色になります
+- Scenarios: "A: Peak season (high load)", "B: Stronger maintenance"
+- Observations: infer load, age and maintenance status from `vibration=Abnormal`, `failure=Shutdown`, `temp=Elevated`
+- `wear` (component wear) is not in `outputs`, so it is an intermediate variable and drawn in grey
 
 ```mermaid
 graph TD
-  load["load: 稼働負荷<br/>低/中/高"]
-  age["age: 経過年数<br/>新しい/中堅/老朽"]
-  service["service: 定期保守<br/>計画通り/遅延"]
-  wear["wear: 部品摩耗（中間変数）<br/>小/中/大"]
-  vibration["vibration: 振動センサー<br/>正常/注意/異常"]
-  temp["temp: 軸受温度<br/>正常/上昇"]
-  failure["failure: 故障<br/>なし/軽微/停止"]
+  load["load: Operating load<br/>Low/Medium/High"]
+  age["age: Equipment age<br/>New/Mid-life/Old"]
+  service["service: Scheduled maintenance<br/>On schedule/Delayed"]
+  wear["wear: Component wear (intermediate)<br/>Low/Medium/High"]
+  vibration["vibration: Vibration sensor<br/>Normal/Warning/Abnormal"]
+  temp["temp: Bearing temperature<br/>Normal/Elevated"]
+  failure["failure: Failure<br/>None/Minor/Shutdown"]
   load --> wear
   age --> wear
   service --> wear
@@ -232,62 +242,71 @@ graph TD
   class wear middle
   classDef output fill:#fde2c4,stroke:#d9822b
   class vibration,temp,failure output
-```
-
-![設備保全：ネットワーク構造](docs/images/maintenance_network.png)
-
-![設備保全：周辺分布のシナリオ比較](docs/images/maintenance_marginals.png)
-
-![設備保全：ベイズ更新](docs/images/maintenance_updates.png)
-
-実行例（設備保全、`--md` の抜粋）：
 
 ```
-## failure（故障）
-| シナリオ | なし | 軽微 | 停止 |
+
+![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/maintenance_network.png)
+
+![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/maintenance_marginals.png)
+
+![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/maintenance_updates.png)
+
+Sample output (maintenance, excerpt of `--md --lang en`):
+
+```
+## failure (Failure)
+| Scenario | None | Minor | Shutdown |
 |---|---|---|---|
-| 基本 | 85.9% | 9.2% | 4.9% |
-| A:繁忙期（高負荷） | 83.2% | 10.7% | 6.1% |
-| B:保守体制の強化 | 86.8% | 8.7% | 4.5% |
+| Base | 85.9% | 9.2% | 4.9% |
+| A: Peak season (high load) | 83.2% | 10.7% | 6.1% |
+| B: Stronger maintenance | 86.8% | 8.7% | 4.5% |
 
-### vibration=異常 を観測（観測前の確率 11.2%）
-- wear: 小 8.5% / 中 32.2% / 大 59.3%
-- 動きの大きさ順(TV): age > load > service
+### Observed vibration=Abnormal (prior probability 11.2%)
+- wear: Low 8.5% / Medium 32.2% / High 59.3%
+- Ranking by movement (TV): age > load > service
 ```
 
-## Python から使う
+## Python API
 
 ```python
 from fxtensor_bayesnet import load_config, run
 
-cfg = load_config("examples/weather/config.json")
+cfg = load_config("examples/weather/config.en.json")
 res = run(cfg)
-print(res["シナリオ"]["A:台風接近"]["周辺"]["rain"])
+# result keys are fixed (Japanese): "シナリオ" = scenarios, "周辺" = marginals, "基本" = base
+print(res["シナリオ"]["A: Typhoon approaching"]["周辺"]["rain"])
 
-# 図（matplotlib が必要）
+# figures (requires matplotlib)
 from fxtensor_bayesnet.plot import plot_all, plot_network
-plot_network(cfg, "network.svg")
-plot_all(res, cfg, "figs", formats=("png",))
+plot_network(cfg, "network.svg", lang="en")
+plot_all(res, cfg, "figs", formats=("png",), lang="en")
 ```
 
-## 構成
+## Layout
 
 ```
 src/fxtensor_bayesnet/
-  config.py     設定の読み込み・検証・整形・ハッシュ
-  network.py    FXTensor による状態・核の組み立て、einsum の直接計算
-  inference.py  シナリオ別周辺分布・ベイズ更新・要因の逆算・検算
-  report.py     Markdown / mermaid 出力
-  history.py    スナップショットと差分
-  plot.py       図（構造図・シナリオ比較・ベイズ更新・変化量。matplotlib は optional）
-  cli.py        コマンドライン
+  config.py     loading, validation, formatting and hashing of configs
+  network.py    building states/kernels with FXTensor; direct einsum computation
+  inference.py  marginals per scenario, Bayesian updates, root-cause inference, checks
+  report.py     Markdown / mermaid output
+  history.py    snapshots and diffs
+  plot.py       figures (structure, scenarios, updates, changes; matplotlib optional)
+  i18n.py       strings for Markdown and figures (Japanese / English)
+  cli.py        command line
 tests/          pytest
-examples/       例題の config
-docs/images/    README の図（docs/make_images.py で再生成）
+examples/       example configs (Japanese and English)
+docs/images/    README figures (regenerate with docs/make_images.py)
 ```
 
-## 依存ライブラリ
+## Dependencies
 
-- [fxtensor-salmon](https://github.com/salmonsnare/fxtensor-salmon)（MIT License）… PyPI の `fxtensor-salmon>=1.2.2,<2` を依存として指定。コードは同梱していません。
+- [fxtensor-salmon](https://github.com/salmonsnare/fxtensor-salmon) (MIT License) – `fxtensor-salmon>=1.2.2,<2` from PyPI; not vendored.
 - numpy
-- matplotlib（optional、`[plot]`）… 図の出力のみ
+- matplotlib (optional, `[plot]`) – only for figures
+
+## License
+
+MIT License. See [LICENSE](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/LICENSE).
+
+See [CHANGELOG.md](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/CHANGELOG.md) for the release history.

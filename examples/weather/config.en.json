@@ -1,0 +1,118 @@
+{
+  "as_of": "2026-10-10",
+  "horizon": "Next day",
+  "note": "Example. All probabilities are illustrative assumptions, not estimated from real weather data.",
+  "variables": {
+    "pressure": {
+      "name": "Pressure pattern",
+      "labels": ["High pressure", "Stationary front", "Low approaching"]
+    },
+    "humidity": {
+      "name": "Humidity",
+      "labels": ["Low", "Medium", "High"]
+    },
+    "cloud": {
+      "name": "Cloud cover",
+      "labels": ["Clear", "Cloudy", "Overcast"]
+    },
+    "rain": {
+      "name": "Precipitation",
+      "labels": ["None", "Light", "Heavy"]
+    },
+    "event": {
+      "name": "Outdoor event",
+      "labels": ["As planned", "Shortened", "Cancelled"]
+    },
+    "traffic": {
+      "name": "Road traffic",
+      "labels": ["Smooth", "Busy", "Jammed"]
+    }
+  },
+  "priors": {
+    "pressure": {
+      "p": [0.45, 0.3, 0.25],
+      "reason": "Assumed climatological frequency for the season"
+    },
+    "humidity": {
+      "p": [0.3, 0.45, 0.25],
+      "reason": "Medium is most likely given yesterday's readings"
+    }
+  },
+  "kernels": {
+    "cloud": {
+      "parents": ["pressure", "humidity"],
+      "reason": "Map the sum s=0..4 of the pressure and humidity levels (0..2) to cloud cover",
+      "cpt": {
+        "High pressure|Low": [0.8, 0.17, 0.03],
+        "High pressure|Medium": [0.6, 0.32, 0.08],
+        "High pressure|High": [0.35, 0.45, 0.2],
+        "Stationary front|Low": [0.6, 0.32, 0.08],
+        "Stationary front|Medium": [0.35, 0.45, 0.2],
+        "Stationary front|High": [0.15, 0.45, 0.4],
+        "Low approaching|Low": [0.35, 0.45, 0.2],
+        "Low approaching|Medium": [0.15, 0.45, 0.4],
+        "Low approaching|High": [0.05, 0.3, 0.65]
+      }
+    },
+    "rain": {
+      "parents": ["cloud", "pressure"],
+      "reason": "Rain is more likely with thicker cloud and an approaching low",
+      "cpt": {
+        "Clear|High pressure": [0.97, 0.03, 0.0],
+        "Clear|Stationary front": [0.92, 0.07, 0.01],
+        "Clear|Low approaching": [0.88, 0.1, 0.02],
+        "Cloudy|High pressure": [0.85, 0.14, 0.01],
+        "Cloudy|Stationary front": [0.6, 0.33, 0.07],
+        "Cloudy|Low approaching": [0.5, 0.38, 0.12],
+        "Overcast|High pressure": [0.55, 0.4, 0.05],
+        "Overcast|Stationary front": [0.2, 0.55, 0.25],
+        "Overcast|Low approaching": [0.1, 0.45, 0.45]
+      }
+    },
+    "event": {
+      "parents": ["rain"],
+      "reason": "Heavy rain usually cancels the event",
+      "cpt": {
+        "None": [0.95, 0.04, 0.01],
+        "Light": [0.6, 0.3, 0.1],
+        "Heavy": [0.1, 0.3, 0.6]
+      }
+    },
+    "traffic": {
+      "parents": ["rain"],
+      "reason": "Rain increases car use and accidents",
+      "cpt": {
+        "None": [0.7, 0.25, 0.05],
+        "Light": [0.4, 0.4, 0.2],
+        "Heavy": [0.15, 0.35, 0.5]
+      }
+    }
+  },
+  "scenarios": {
+    "A: Typhoon approaching": {
+      "pressure": [0.05, 0.25, 0.7]
+    },
+    "B: Dry spell": {
+      "pressure": [0.7, 0.2, 0.1],
+      "humidity": [0.6, 0.3, 0.1]
+    }
+  },
+  "observations": [
+    {
+      "var": "rain",
+      "label": "Heavy",
+      "focus": ["pressure", "humidity"]
+    },
+    {
+      "var": "traffic",
+      "label": "Jammed",
+      "focus": ["pressure", "humidity", "rain"]
+    },
+    {
+      "var": "event",
+      "label": "Cancelled",
+      "focus": ["pressure", "humidity"]
+    }
+  ],
+  "outputs": ["cloud", "rain", "event", "traffic"]
+}

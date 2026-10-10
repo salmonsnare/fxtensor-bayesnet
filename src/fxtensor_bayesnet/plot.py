@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 import warnings
 
+from .i18n import obs_name, scenario_name, t
+
 FONT_CANDIDATES = [
     "Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", "IPAexGothic", "IPAGothic",
     "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "MS Gothic",
@@ -144,7 +146,7 @@ def _text_width(s, size_pt, bold=False):
     return em * size_pt / 72 * (1.08 if bold else 1.0)
 
 
-def plot_network(cfg, path, dpi=150, title=None):
+def plot_network(cfg, path, dpi=150, title=None, lang="ja"):
     plt = _mpl()
     from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Patch
     from matplotlib.path import Path
@@ -211,11 +213,11 @@ def plot_network(cfg, path, dpi=150, title=None):
         ax.text(x, y + 0.12, texts[v][0], ha="center", va="center", fontsize=fs_name, weight="bold", zorder=3)
         ax.text(x, y - 0.16, texts[v][1], ha="center", va="center", fontsize=fs_lab, color="#333333", zorder=3)
     handles = [Patch(fc=COLORS[k], ec=EDGE_COLORS[k], label=lab)
-               for k, lab in (("root", "根（事前分布）"), ("middle", "中間変数"), ("output", "出力変数"))
+               for k, lab in (("root", t(lang, "kind_root")), ("middle", t(lang, "kind_middle")), ("output", t(lang, "kind_output")))
                if k in kinds.values()]
     ax.legend(handles=handles, loc="upper center", ncol=len(handles), frameon=False, fontsize=9,
               bbox_to_anchor=(0.5, 0.0))
-    ax.set_title(title or "ネットワーク構造", fontsize=12)
+    ax.set_title(title or t(lang, "network_title"), fontsize=12)
     return _save(fig, path, dpi)
 
 
@@ -227,7 +229,25 @@ def _grid(n, ncols):
     return (n + ncols - 1) // ncols, ncols
 
 
-def _grouped_bars(ax, labels, series, colors, annotate=True):
+def _wrap_label(lab, max_in, size_pt=9):
+    """目盛りラベルが幅 max_in（インチ）に収まらなければ折り返す（空白で、なければ文字単位で）。"""
+    if _text_width(lab, size_pt) <= max_in:
+        return lab
+    tokens = lab.split(" ") if " " in lab else list(lab)
+    sep = " " if " " in lab else ""
+    lines, cur = [], ""
+    for tok in tokens:
+        cand = f"{cur}{sep}{tok}" if cur else tok
+        if cur and _text_width(cand, size_pt) > max_in:
+            lines.append(cur)
+            cur = tok
+        else:
+            cur = cand
+    lines.append(cur)
+    return "\n".join(lines)
+
+
+def _grouped_bars(ax, labels, series, colors, annotate=True, axes_width_in=None):
     import numpy as np
     k = len(series)
     width = 0.8 / k
@@ -240,6 +260,8 @@ def _grouped_bars(ax, labels, series, colors, annotate=True):
                 ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 1.0, f"{v*100:.0f}",
                         ha="center", va="bottom", fontsize=7, color="#333333")
     ax.set_xticks(x)
+    if axes_width_in:
+        labels = [_wrap_label(lab, 0.92 * axes_width_in / len(labels)) for lab in labels]
     ax.set_xticklabels(labels, fontsize=9)
     ax.set_ylim(0, 108)
     ax.set_ylabel("%", fontsize=9)
@@ -249,7 +271,7 @@ def _grouped_bars(ax, labels, series, colors, annotate=True):
         ax.spines[s].set_visible(False)
 
 
-def plot_marginals(res, cfg, path, dpi=150, ncols=2):
+def plot_marginals(res, cfg, path, dpi=150, ncols=2, lang="ja"):
     plt = _mpl()
     V = cfg["variables"]
     scen = list(res["シナリオ"])
@@ -259,15 +281,15 @@ def plot_marginals(res, cfg, path, dpi=150, ncols=2):
     colors = plt.get_cmap("tab10").colors
     for ax, v in zip(axes.flat, outputs):
         labs = V[v]["labels"]
-        series = [(s, [res["シナリオ"][s]["周辺"][v][lab] for lab in labs]) for s in scen]
-        _grouped_bars(ax, labs, series, colors, annotate=len(scen) * len(labs) <= 15)
-        ax.set_title(f"{V[v].get('name', v)}（{v}）", fontsize=10)
+        series = [(scenario_name(lang, s), [res["シナリオ"][s]["周辺"][v][lab] for lab in labs]) for s in scen]
+        _grouped_bars(ax, labs, series, colors, annotate=len(scen) * len(labs) <= 15, axes_width_in=3.8)
+        ax.set_title(f"{V[v].get('name', v)}（{v}）" if lang == "ja" else f"{V[v].get('name', v)} ({v})", fontsize=10)
     for ax in list(axes.flat)[len(outputs):]:
         ax.axis("off")
     h, lab = axes.flat[0].get_legend_handles_labels()
     fig.legend(h, lab, loc="lower center", ncol=min(len(scen), 4), frameon=False, fontsize=9,
-               bbox_to_anchor=(0.5, -0.01), title="シナリオ", title_fontsize=9)
-    fig.suptitle(f"周辺分布のシナリオ比較（基準日 {res['基準日']}）", fontsize=12)
+               bbox_to_anchor=(0.5, -0.01), title=t(lang, "scenario"), title_fontsize=9)
+    fig.suptitle(t(lang, "marginals_title", as_of=res["基準日"]), fontsize=12)
     fig.tight_layout(rect=(0, 0.06 + 0.02 * ((len(scen) - 1) // 4), 1, 0.97))
     return _save(fig, path, dpi)
 
@@ -275,7 +297,7 @@ def plot_marginals(res, cfg, path, dpi=150, ncols=2):
 # ---------------------------------------------------------------------------
 # (3) ベイズ更新（事前・事後）
 # ---------------------------------------------------------------------------
-def plot_updates(res, cfg, path, dpi=150):
+def plot_updates(res, cfg, path, dpi=150, lang="ja"):
     plt = _mpl()
     V = cfg["variables"]
     ups = res["ベイズ更新(基本)"]
@@ -297,15 +319,16 @@ def plot_updates(res, cfg, path, dpi=150):
             labs = V[w]["labels"]
             pri = [r["注目変数の事前"][w][lab] for lab in labs]
             post = [r["事後"][w][lab] for lab in labs]
-            _grouped_bars(ax, labs, [("事前", pri), ("事後", post)], [PRIOR_COLOR, POST_COLOR])
+            _grouped_bars(ax, labs, [(t(lang, "prior"), pri), (t(lang, "posterior"), post)], [PRIOR_COLOR, POST_COLOR],
+                          axes_width_in=2.7)
             tv = r["注目変数の動き"].get(w, {}).get("全変動距離TV")
-            ax.set_title(f"{V[w].get('name', w)}" + (f"（TV {tv:.3f}）" if tv is not None else ""), fontsize=9.5)
-        obs = key.replace(" を観測", "")
-        axes[i][0].annotate(f"観測: {obs}（観測前の確率 {r['観測前の確率']*100:.1f}%）",
+            tv_s = "" if tv is None else (f"（TV {tv:.3f}）" if lang == "ja" else f" (TV {tv:.3f})")
+            ax.set_title(f"{V[w].get('name', w)}{tv_s}", fontsize=9.5)
+        axes[i][0].annotate(t(lang, "obs_annot", obs=obs_name(key), p=r["観測前の確率"] * 100),
                             xy=(0, 1.2), xycoords="axes fraction", fontsize=10.5, weight="bold", ha="left")
     h, lab = axes[0][0].get_legend_handles_labels()
     fig.legend(h, lab, loc="upper right", ncol=2, frameon=False, fontsize=9)
-    fig.suptitle("ベイズ更新：注目変数の事前・事後", fontsize=12, x=0.02, ha="left")
+    fig.suptitle(t(lang, "updates_title"), fontsize=12, x=0.02, ha="left")
     fig.tight_layout(rect=(0, 0, 1, 0.95), h_pad=3.0)
     return _save(fig, path, dpi)
 
@@ -330,7 +353,7 @@ def diff_deltas(old_res, new_res):
     return out
 
 
-def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label="前回", new_label="今回"):
+def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label=None, new_label=None, lang="ja"):
     plt = _mpl()
     V = cfg["variables"]
     deltas = diff_deltas(old_res, new_res)
@@ -349,12 +372,12 @@ def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label="前回", new_labe
                 ax.text(x + (0.02 * lim if x >= 0 else -0.02 * lim), y, f"{x:+.1f}", va="center",
                         ha="left" if x >= 0 else "right", fontsize=7)
         if all(abs(x) < 0.05 for x in vals):
-            ax.text(0.5, 0.5, "変化なし", transform=ax.transAxes, ha="center", va="center", fontsize=11,
+            ax.text(0.5, 0.5, t(lang, "no_change"), transform=ax.transAxes, ha="center", va="center", fontsize=11,
                     color="#666666", bbox=dict(fc="white", ec="none"))
         ax.axvline(0, color="#333333", lw=0.8)
         ax.set_xlim(-lim, lim)
-        ax.set_title(sc, fontsize=10)
-        ax.set_xlabel("変化（pt）", fontsize=9)
+        ax.set_title(scenario_name(lang, sc), fontsize=10)
+        ax.set_xlabel(t(lang, "change_pt"), fontsize=9)
         ax.grid(axis="x", alpha=0.3)
         ax.set_yticks(ys)
         ax.set_yticklabels([f"{V.get(v, {}).get('name', v)}: {lab}" for v, lab, _ in rows], fontsize=8)
@@ -364,7 +387,7 @@ def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label="前回", new_labe
             if prev is not None and v != prev:
                 ax.axhline(y + 0.5, color="#bbbbbb", lw=0.6)
             prev = v
-    fig.suptitle(f"周辺分布の変化：{old_label} → {new_label}", fontsize=12)
+    fig.suptitle(t(lang, "diff_title", old=old_label or t(lang, "previous"), new=new_label or t(lang, "current")), fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.95), w_pad=2.5)
     return _save(fig, path, dpi)
 
@@ -372,13 +395,13 @@ def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label="前回", new_labe
 # ---------------------------------------------------------------------------
 # まとめて出力
 # ---------------------------------------------------------------------------
-def plot_all(res, cfg, out_dir, formats=("png",), dpi=150, prefix=""):
+def plot_all(res, cfg, out_dir, formats=("png",), dpi=150, prefix="", lang="ja"):
     """network / marginals / updates を out_dir に書き、書いたパスのリストを返す。"""
     paths = []
     for fmt in formats:
-        paths.append(plot_network(cfg, os.path.join(out_dir, f"{prefix}network.{fmt}"), dpi))
-        paths.append(plot_marginals(res, cfg, os.path.join(out_dir, f"{prefix}marginals.{fmt}"), dpi))
-        p = plot_updates(res, cfg, os.path.join(out_dir, f"{prefix}updates.{fmt}"), dpi)
+        paths.append(plot_network(cfg, os.path.join(out_dir, f"{prefix}network.{fmt}"), dpi, lang=lang))
+        paths.append(plot_marginals(res, cfg, os.path.join(out_dir, f"{prefix}marginals.{fmt}"), dpi, lang=lang))
+        p = plot_updates(res, cfg, os.path.join(out_dir, f"{prefix}updates.{fmt}"), dpi, lang=lang)
         if p:
             paths.append(p)
     return paths

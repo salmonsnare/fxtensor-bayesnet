@@ -17,6 +17,7 @@
                       matplotlib が必要: pip install 'fxtensor-bayesnet[plot]'
     --plot-format F.. 図の形式 png / svg（複数可。既定: png）
     --plot-dpi N      PNG の解像度（既定: 150）
+    --lang ja|en      Markdown と図の見出し・凡例の言語（既定: ja。results.json のキーは固定）
 """
 from __future__ import annotations
 
@@ -49,6 +50,7 @@ def build_parser():
     ap.add_argument("--plot", action="store_true")
     ap.add_argument("--plot-format", nargs="+", choices=["png", "svg"], default=["png"])
     ap.add_argument("--plot-dpi", type=int, default=150)
+    ap.add_argument("--lang", choices=["ja", "en"], default="ja")
     return ap
 
 
@@ -111,7 +113,7 @@ def main(argv=None):
             if plot:
                 for fmt in a.plot_format:
                     out = plot.plot_diff(old_res, new_res, cfg, os.path.join(out_dir, f"diff.{fmt}"), a.plot_dpi,
-                                         old_label=old_res.get("基準日", "前回"), new_label=cfg["as_of"])
+                                         old_label=old_res.get("基準日"), new_label=cfg["as_of"], lang=a.lang)
                     if out:
                         print(f"図を保存: {out}", file=sys.stderr)
         elif plot:
@@ -119,7 +121,7 @@ def main(argv=None):
         return 0
 
     res = run(cfg)
-    md = render_markdown(res, cfg)
+    md = render_markdown(res, cfg, a.lang)
     if not a.no_write:
         os.makedirs(out_dir, exist_ok=True)
         with open(os.path.join(out_dir, "results.json"), "w", encoding="utf-8") as f:
@@ -129,7 +131,7 @@ def main(argv=None):
         with open(os.path.join(out_dir, "model.mmd"), "w", encoding="utf-8") as f:
             f.write(render_mermaid(cfg))
     if plot:
-        for out in plot.plot_all(res, cfg, out_dir, a.plot_format, a.plot_dpi):
+        for out in plot.plot_all(res, cfg, out_dir, a.plot_format, a.plot_dpi, lang=a.lang):
             print(f"図を保存: {out}", file=sys.stderr)
     if a.snapshot:
         try:
