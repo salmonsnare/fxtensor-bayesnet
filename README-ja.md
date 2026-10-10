@@ -13,7 +13,7 @@
 - 各変数は有限個のラベル（例：`晴れ / 曇り / 厚い雲`）をとる離散変数です。
 - 親を持たない変数（根）には事前分布、子の変数には「親のラベルの組合せ → 子の分布」の条件付き確率表（マルコフ核）を書きます。
 - fxtensor-salmon の `FXTensor` で状態と核を合成して同時分布を作り、シナリオごとの周辺分布、観測による条件付け（ベイズ更新）、`bayesian_inversion` による根の要因の逆算を計算します。
-- 毎回、ライブラリでの計算結果を numpy `einsum` の直接計算と突き合わせ、ずれがあれば停止します（結果の `検算` 欄）。
+- 毎回、ライブラリでの計算結果を numpy `einsum` の直接計算と丸め前の値で突き合わせ、ずれがあれば停止します（結果の `検算` 欄）。
 - 同時分布の要素数が 200 万を超えると、自動的に「祖先集合だけの einsum」計算に切り替わります（結果は同じ）。
 - `--plot` でネットワーク構造図・シナリオ比較・ベイズ更新・前回からの変化量の図を PNG / SVG で出力できます（matplotlib が必要）。
 
@@ -44,7 +44,7 @@ pytest
 例題の設定は `examples/` にあります（PyPI のパッケージには含まれないので、リポジトリから取得してください）。
 
 ```bash
-curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/examples/weather/config.json
+curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/examples/weather/config.json
 fxtensor-bayesnet --check                       # 既定はカレントディレクトリの config.json
 fxtensor-bayesnet --no-write --md               # Markdown を標準出力へ
 fxtensor-bayesnet --no-write --plot --out-dir out/   # 図だけ out/ に
@@ -118,9 +118,9 @@ fxtensor-bayesnet [--config PATH] [options]
 | `--no-write` | `results.json` / `results.md` / `model.mmd` を書かず、標準出力だけにする |
 | `--md` | 標準出力を Markdown にする（既定は JSON） |
 | `--lang ja\|en` | Markdown と図の見出し・凡例の言語（既定 `ja`）。`results.json` のキーは言語によらず固定 |
-| `--snapshot` | 設定と結果を `<history-dir>/<as_of>/` に保存（既存なら終了コード 1） |
+| `--snapshot` | 設定と結果を `<history-dir>/<as_of>/` に保存。そのフォルダが既にあれば（`--force` なしのとき）、何も書かずに（結果・図・スナップショットとも）終了コード 1 で止まる |
 | `--force` | `--snapshot` の上書きを許可 |
-| `--diff [PATH]` | 前回スナップショットとの差分（設定の変更点＋結果の 0.1pt 以上の変化）。PATH 省略時は `as_of` より前で最新の日付 |
+| `--diff [PATH]` | スナップショットとの差分（設定の変更点（reason や、経路を変えた核の新旧の行も含む）＋結果の 0.1pt 以上の変化）。PATH にはスナップショットのフォルダ（中の `config.json` と `results.json` を使う）か `config.json` を指定。存在しないパスは終了コード 2。PATH 省略時は `as_of` **より前**で最新の日付を使い、**`as_of` と同じ日付のスナップショットは自動では比較対象にならない**（比べたいときは `--diff history/2026-10-10` のように明示） |
 | `--format-config` | 設定ファイルを読みやすい形（核の 1 行＝1 行）に整形して書き戻す |
 | `--out-dir DIR` | 結果ファイル・図の出力先（既定：設定ファイルと同じフォルダ） |
 | `--history-dir DIR` | スナップショットの保存先（既定：設定ファイルと同じフォルダの `history/`） |
@@ -160,7 +160,7 @@ fxtensor-bayesnet --diff --plot                   # 前回との差分＋ diff.p
 cd my-model/                         # config.json があるフォルダ
 # 1. config.json の as_of・priors・必要なら kernels を更新
 fxtensor-bayesnet --check            # 検証
-fxtensor-bayesnet --diff             # 前回との差分
+fxtensor-bayesnet --diff             # 前回（as_of より前の日付）との差分
 fxtensor-bayesnet --snapshot --md    # 実行して results.* を更新し history/<as_of>/ に記録
 fxtensor-bayesnet --plot --no-write  # 図を更新
 ```

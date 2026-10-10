@@ -10,8 +10,14 @@ from .network import Net, self_test_graph_extend, wiring
 MAX_JOINT = 2_000_000      # 同時分布の要素数がこれを超えたら祖先集合ごとの計算に切り替え
 
 
+def _r(x, nd):
+    """丸めて -0.0 を 0.0 に正規化する。"""
+    x = round(float(x), nd)
+    return 0.0 if x == 0 else x
+
+
 def as_dict(labels, arr, nd=4):
-    return {lab: round(float(x), nd) for lab, x in zip(labels, arr)}
+    return {lab: _r(x, nd) for lab, x in zip(labels, arr)}
 
 
 def movement(prior, post, labels):
@@ -20,9 +26,9 @@ def movement(prior, post, labels):
     q = np.array([post[lab] for lab in labels])
     nz = q > 0
     return {
-        "差(pt)": {lab: round(float((q[i] - p[i]) * 100), 1) for i, lab in enumerate(labels)},
-        "全変動距離TV": round(float(0.5 * np.abs(q - p).sum()), 4),
-        "KL(事後||事前)[nat]": round(float(np.sum(q[nz] * np.log(q[nz] / np.maximum(p[nz], 1e-300)))), 4),
+        "差(pt)": {lab: _r((q[i] - p[i]) * 100, 1) for i, lab in enumerate(labels)},
+        "全変動距離TV": _r(0.5 * np.abs(q - p).sum(), 4),
+        "KL(事後||事前)[nat]": _r(np.sum(q[nz] * np.log(q[nz] / np.maximum(p[nz], 1e-300))), 4),
     }
 
 
@@ -52,8 +58,8 @@ class Engine:
             return self.joint.composition(wiring(self.labs, [self.names.index(a), self.names.index(b)]))
         return FXTensor([[], [net.labels[a], net.labels[b]]], data=net.einsum_query(self.priors, [a, b]))
 
-    def condition(self, obs, label):
-        """観測 obs=label の下での各変数の事後（(obs, v) の2変数状態を conditionalization(2)）。"""
+    def condition_raw(self, obs, label):
+        """観測 obs=label の下での各変数の事後（丸め前の ndarray）。(obs, v) の2変数状態を conditionalization(2)。"""
         net = self.net
         ev = float(self.marginal(obs)[net.labels[obs].index(label)])
         if ev <= 0:
@@ -63,11 +69,21 @@ class Engine:
             if v == obs:
                 continue
             cond = self.pair(obs, v).conditionalization(2)            # obs → v
-            post[v] = as_dict(net.labels[v], cond.data[cond.get_label_index(0, label)])
+            post[v] = np.asarray(cond.data[cond.get_label_index(0, label)], float)
         return ev, post
 
+    def condition(self, obs, label):
+        """condition_raw を小数4桁に丸めた辞書で返す。"""
+        ev, raw = self.condition_raw(obs, label)
+        return ev, {v: as_dict(self.net.labels[v], a) for v, a in raw.items()}
+
     def inversion_roots(self, obs, label):
-        """核 (根の全体)→obs を einsum で作り FXTensor.bayesian_inversion で根の事後を出す（要因の逆算）。"""
+        """inversion_roots_raw を小数4桁に丸めた辞書で返す。"""
+        raw = self.inversion_roots_raw(obs, label)
+        return {r: as_dict(self.net.labels[r], a) for r, a in raw.items()}
+
+    def inversion_roots_raw(self, obs, label):
+        """核 (根の全体)→obs を einsum で作り FXTensor.bayesian_inversion で根の事後を出す（要因の逆算、丸め前）。"""
         net = self.net
         kdata = net.einsum_query(self.priors, [obs], free_roots=True)
         k = FXTensor([[net.labels[r] for r in net.roots], [net.labels[obs]]], data=kdata)
@@ -77,7 +93,7 @@ class Engine:
         out = {}
         for i, r in enumerate(net.roots):
             axes = tuple(j for j in range(len(net.roots)) if j != i)
-            out[r] = as_dict(net.labels[r], row.sum(axis=axes) if axes else row)
+            out[r] = np.asarray(row.sum(axis=axes) if axes else row, float)
         return out
 
 
@@ -113,18 +129,18 @@ def run(cfg, max_joint=MAX_JOINT):
     eng = Engine(net, base_pri, max_joint)
     for ob in cfg.get("observations", []):
         v, lab = ob["var"], ob["label"]
-        ev, post = eng.condition(v, lab)
-        for w, d in post.items():          # einsum 検算（祖先集合で (obs, w) を直接）
+        ev, raw = eng.condition_raw(v, lab)
+        post = {w: as_dict(net.labels[w], a) for w, a in raw.items()}
+        for w, a in raw.items():           # einsum 検算（祖先集合で (obs, w) を直接）。丸め前の値で比べる
             pr = net.einsum_query(base_pri, [v, w])
             ref = pr[net.labels[v].index(lab)] / pr[net.labels[v].index(lab)].sum()
             checks["einsum(条件付け)との最大差"] = max(checks["einsum(条件付け)との最大差"],
-                                                   float(np.max(np.abs(np.array(list(d.values())) - ref))))
-        inv = eng.inversion_roots(v, lab)
-        for r, d in inv.items():
+                                                   float(np.max(np.abs(a - ref))))
+        inv = eng.inversion_roots_raw(v, lab)
+        for r, a in inv.items():
             if r != v:
                 checks["bayesian_inversionとconditionalizationの最大差"] = max(
-                    checks["bayesian_inversionとconditionalizationの最大差"],
-                    max(abs(d[lab_] - post[r][lab_]) for lab_ in d))
+                    checks["bayesian_inversionとconditionalizationの最大差"], float(np.max(np.abs(a - raw[r]))))
         focus = ob.get("focus") or net.roots
         prior_marg = {w: eng.marginal(w) for w in focus}
         mv = {w: movement(prior_marg[w], post[w], net.labels[w]) for w in focus if w != v}
@@ -137,8 +153,8 @@ def run(cfg, max_joint=MAX_JOINT):
     for k in list(checks):
         if isinstance(checks[k], float):
             checks[k] = float(f"{checks[k]:.3g}")
-    checks["備考"] = "事後は小数4桁に丸めて出力するため、条件付けの差は丸め誤差（<5e-5）程度"
+    checks["備考"] = "検算はすべて丸め前の値で比較（出力の確率は小数4桁に丸めている）"
     res["検算"] = checks
     assert checks["einsum(全同時)との最大差"] < 1e-12 and checks["einsum(祖先集合・周辺)との最大差"] < 1e-12
-    assert checks["einsum(条件付け)との最大差"] < 1e-4 and checks["bayesian_inversionとconditionalizationの最大差"] < 1e-3
+    assert checks["einsum(条件付け)との最大差"] < 1e-9 and checks["bayesian_inversionとconditionalizationの最大差"] < 1e-9
     return res

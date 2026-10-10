@@ -13,7 +13,7 @@ How it works:
 - Each variable is discrete and takes one of a finite set of labels (e.g. `Clear / Cloudy / Overcast`).
 - Variables without parents (roots) get a prior distribution; child variables get a conditional probability table ("parent label combination → child distribution", i.e. a Markov kernel).
 - The joint distribution is built by composing states and kernels with fxtensor-salmon's `FXTensor`. From it the tool computes marginals per scenario, conditioning on observations (Bayesian updating), and root-cause inference via `bayesian_inversion`.
-- On every run, results computed with the library are cross-checked against a direct numpy `einsum` computation; any mismatch stops the run (see the `検算` ("checks") field of the results).
+- On every run, results computed with the library are cross-checked against a direct numpy `einsum` computation, using unrounded values; any mismatch stops the run (see the `検算` ("checks") field of the results).
 - When the joint distribution would exceed 2 million entries, the tool automatically switches to computing over ancestor sets only (same results).
 - `--plot` renders the network structure, scenario comparison, Bayesian updates and day-over-day changes as PNG / SVG (requires matplotlib).
 
@@ -44,7 +44,7 @@ pytest
 Example configs live in `examples/` (they are not part of the PyPI package, so fetch them from the repository).
 
 ```bash
-curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/examples/weather/config.en.json
+curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/examples/weather/config.en.json
 fxtensor-bayesnet --check                            # defaults to ./config.json
 fxtensor-bayesnet --no-write --md --lang en          # Markdown to stdout
 fxtensor-bayesnet --no-write --plot --lang en --out-dir out/   # figures only, into out/
@@ -118,9 +118,9 @@ fxtensor-bayesnet [--config PATH] [options]
 | `--no-write` | Do not write `results.json` / `results.md` / `model.mmd`; print to stdout only |
 | `--md` | Print Markdown instead of JSON |
 | `--lang ja\|en` | Language of Markdown and figure titles/legends (default `ja`). The keys in `results.json` are fixed regardless of language |
-| `--snapshot` | Save the config and results to `<history-dir>/<as_of>/` (exit code 1 if it already exists) |
+| `--snapshot` | Save the config and results to `<history-dir>/<as_of>/`. If that folder already exists (and `--force` is not given), the run stops with exit code 1 before writing anything (no results, figures or snapshot) |
 | `--force` | Allow `--snapshot` to overwrite |
-| `--diff [PATH]` | Diff against the previous snapshot (config changes plus result changes of 0.1 pt or more). Without PATH, the latest date before `as_of` is used |
+| `--diff [PATH]` | Diff against a snapshot (config changes, including reasons and the rows of re-wired kernels, plus result changes of 0.1 pt or more). PATH may be a snapshot folder (its `config.json` and `results.json` are used) or a `config.json` file; a missing path exits with code 2. Without PATH, the latest snapshot dated **strictly before** `as_of` is used — a snapshot with the same date as `as_of` is never picked automatically (pass it explicitly, e.g. `--diff history/2026-10-10`) |
 | `--format-config` | Rewrite the config in a readable layout (one kernel row per line) |
 | `--out-dir DIR` | Where results and figures go (default: the config's folder) |
 | `--history-dir DIR` | Where snapshots go (default: `history/` next to the config) |
@@ -160,7 +160,7 @@ A font that can display Japanese (Noto Sans CJK JP, IPAexGothic, Hiragino Sans, 
 cd my-model/                         # folder containing config.json
 # 1. update as_of, priors and (if needed) kernels in config.json
 fxtensor-bayesnet --check            # validate
-fxtensor-bayesnet --diff             # changes since the previous snapshot
+fxtensor-bayesnet --diff             # changes since the previous snapshot (dated before as_of)
 fxtensor-bayesnet --snapshot --md    # run, update results.*, record history/<as_of>/
 fxtensor-bayesnet --plot --no-write  # refresh figures
 ```
@@ -199,19 +199,19 @@ graph TD
 
 Network structure (`network.png` from `--plot`):
 
-![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_network.png)
+![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/docs/images/en/weather_network.png)
 
 Marginals by scenario (`marginals.png`):
 
-![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_marginals.png)
+![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/docs/images/en/weather_marginals.png)
 
 Bayesian update, prior vs posterior (`updates.png`). For example, observing heavy rain raises "Low approaching" for the pressure pattern from 25% to 67%:
 
-![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_updates.png)
+![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/docs/images/en/weather_updates.png)
 
 Day-over-day change (`diff.png` from `--diff --plot`): the next day, the pressure and humidity priors are revised. Scenarios A and B override the pressure prior (B also humidity), so they change less (B not at all):
 
-![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/weather_diff.png)
+![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/docs/images/en/weather_diff.png)
 
 ### Equipment maintenance (`examples/maintenance/config.en.json`)
 
@@ -245,11 +245,11 @@ graph TD
 
 ```
 
-![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/maintenance_network.png)
+![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/docs/images/en/maintenance_network.png)
 
-![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/maintenance_marginals.png)
+![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/docs/images/en/maintenance_marginals.png)
 
-![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.0/docs/images/en/maintenance_updates.png)
+![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.9.1/docs/images/en/maintenance_updates.png)
 
 Sample output (maintenance, excerpt of `--md --lang en`):
 

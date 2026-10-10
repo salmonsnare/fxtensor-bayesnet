@@ -28,7 +28,8 @@ import sys
 
 from . import __version__
 from .config import ConfigError, config_hash, dump_config, load_config
-from .history import diff_configs, diff_results, previous_snapshot, snapshot
+from .history import (check_snapshot_free, diff_configs, diff_results, previous_snapshot,
+                      resolve_diff_path, snapshot)
 from .inference import run
 from .report import render_markdown, render_mermaid
 
@@ -95,18 +96,32 @@ def main(argv=None):
         print(f"設定OK: {a.config}（変数 {len(cfg['variables'])}、核 {len(cfg['kernels'])}、ハッシュ {config_hash(cfg)}）")
         return 0
     if a.diff:
-        path = previous_snapshot(history_dir, cfg["as_of"]) if a.diff == "__prev__" else a.diff
-        if not path:
-            print(f"比較対象のスナップショットがありません（{history_dir}/<日付>/config.json）")
-            return 0
-        with open(path, encoding="utf-8") as f:
-            old = json.load(f)
+        if a.diff == "__prev__":
+            prev = previous_snapshot(history_dir, cfg["as_of"])
+            if not prev:
+                print(f"比較対象のスナップショットがありません（{history_dir}/<as_of より前の日付>/config.json。"
+                      f"as_of と同じ日付 {cfg['as_of']} は対象外）")
+                return 0
+            target = prev
+        else:
+            target = a.diff
+        try:
+            path, rpath = resolve_diff_path(target)
+            with open(path, encoding="utf-8") as f:
+                old = json.load(f)
+            old_res = None
+            if rpath:
+                with open(rpath, encoding="utf-8") as f:
+                    old_res = json.load(f)
+        except FileNotFoundError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            print(f"比較対象の JSON を読めません: {target}: {e}", file=sys.stderr)
+            return 2
         print(f"# 設定の差分: {path} → {a.config}")
         print("\n".join(diff_configs(old, cfg)))
-        rpath = os.path.join(os.path.dirname(path), "results.json")
-        if os.path.exists(rpath):
-            with open(rpath, encoding="utf-8") as f:
-                old_res = json.load(f)
+        if old_res is not None:
             new_res = run(cfg)
             print(f"\n# 結果の差分（0.1pt 以上）: {rpath} → 現在の設定で再計算")
             print("\n".join(diff_results(old_res, new_res)))
@@ -119,6 +134,13 @@ def main(argv=None):
         elif plot:
             print("前回の results.json がないため変化量の図は描けません", file=sys.stderr)
         return 0
+
+    if a.snapshot:          # 何かを書く前に衝突を確認する
+        try:
+            check_snapshot_free(cfg, history_dir, a.force)
+        except FileExistsError as e:
+            print(str(e), file=sys.stderr)
+            return 1
 
     res = run(cfg)
     md = render_markdown(res, cfg, a.lang)

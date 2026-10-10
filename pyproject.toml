@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fxtensor-bayesnet"
-version = "0.9.0"
+version = "0.9.1"
 description = "Config-driven inference for discrete Bayesian networks: scenario comparison, Bayesian updating, root-cause inference and daily snapshots (built on fxtensor-salmon)"
 readme = "README.md"
 requires-python = ">=3.8"

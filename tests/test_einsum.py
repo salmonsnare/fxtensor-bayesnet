@@ -51,8 +51,8 @@ def test_run_self_checks_are_small(example_cfg):
     chk = run(example_cfg)["検算"]
     assert chk["einsum(全同時)との最大差"] < 1e-12
     assert chk["einsum(祖先集合・周辺)との最大差"] < 1e-12
-    assert chk["einsum(条件付け)との最大差"] < 1e-4
-    assert chk["bayesian_inversionとconditionalizationの最大差"] < 1e-3
+    assert chk["einsum(条件付け)との最大差"] < 1e-12
+    assert chk["bayesian_inversionとconditionalizationの最大差"] < 1e-12
 
 
 def test_graph_extend_shape():

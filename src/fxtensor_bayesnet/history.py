@@ -8,10 +8,43 @@ import re
 from .config import dump_config
 
 
-def snapshot(cfg, res, history_dir, force=False):
-    d = os.path.join(history_dir, cfg["as_of"])
+def zero(x, nd=1):
+    """丸めて -0.0 を 0.0 に正規化する。"""
+    x = round(float(x), nd)
+    return 0.0 if x == 0 else x
+
+
+def snapshot_dir(cfg, history_dir):
+    return os.path.join(history_dir, cfg["as_of"])
+
+
+def check_snapshot_free(cfg, history_dir, force=False):
+    """スナップショット先が空いているか確認する（何かを書く前に呼ぶ）。"""
+    d = snapshot_dir(cfg, history_dir)
     if os.path.exists(d) and not force:
-        raise FileExistsError(f"{d} は既にあります（上書きするなら --force）")
+        raise FileExistsError(f"{d} は既にあります（上書きするなら --force）。何も書かずに終了します")
+    return d
+
+
+def resolve_diff_path(path):
+    """--diff の引数を (config.json のパス, results.json のパス or None) に解決する。
+
+    フォルダならその中の config.json / results.json を使う。見つからなければ FileNotFoundError。
+    """
+    if os.path.isdir(path):
+        cpath = os.path.join(path, "config.json")
+        if not os.path.isfile(cpath):
+            raise FileNotFoundError(f"フォルダに config.json がありません: {path}")
+    elif os.path.isfile(path):
+        cpath = path
+    else:
+        raise FileNotFoundError(f"比較対象が見つかりません: {path}")
+    rpath = os.path.join(os.path.dirname(cpath), "results.json")
+    return cpath, (rpath if os.path.isfile(rpath) else None)
+
+
+def snapshot(cfg, res, history_dir, force=False):
+    d = check_snapshot_free(cfg, history_dir, force)
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "config.json"), "w", encoding="utf-8") as f:
         f.write(dump_config(cfg))
@@ -45,6 +78,12 @@ def diff_configs(old, new):
         b = new.get("priors", {}).get(v, {}).get("p")
         if a != b:
             out.append(f"~ 事前分布 {v}: {a} → {b}")
+    for v in sorted(set(old.get("priors", {})) & set(new.get("priors", {}))):
+        if old["priors"][v].get("reason") != new["priors"][v].get("reason"):
+            out.append(f"~ 理由文 {v}（事前分布）を更新: {old['priors'][v].get('reason')!r} → {new['priors'][v].get('reason')!r}")
+    for v in sorted(set(ov) & set(nv)):
+        if ov[v].get("name") != nv[v].get("name"):
+            out.append(f"~ 表示名 {v}: {ov[v].get('name')} → {nv[v].get('name')}")
     ok, nk = old.get("kernels", {}), new.get("kernels", {})
     for v in sorted(set(ok) | set(nk)):
         if v not in ok:
@@ -53,12 +92,20 @@ def diff_configs(old, new):
         if v not in nk:
             out.append(f"- 核削除 {v}")
             continue
+        ocpt, ncpt = ok[v].get("cpt", {}), nk[v].get("cpt", {})
         if ok[v]["parents"] != nk[v]["parents"]:
-            out.append(f"~ 経路変更 {v}: 親 {ok[v]['parents']} → {nk[v]['parents']}")
-            continue
-        for row in nk[v]["cpt"]:
-            if ok[v]["cpt"].get(row) != nk[v]["cpt"][row]:
-                out.append(f"~ 核 {v}[{row}]: {ok[v]['cpt'].get(row)} → {nk[v]['cpt'][row]}")
+            out.append(f"~ 経路変更 {v}: 親 {ok[v]['parents']} → {nk[v]['parents']}（核の行を全て置き換え）")
+            out += [f"  - 旧 {v}[{row}]: {p}" for row, p in ocpt.items()]
+            out += [f"  + 新 {v}[{row}]: {p}" for row, p in ncpt.items()]
+        else:
+            for row in ncpt:
+                if row not in ocpt:
+                    out.append(f"+ 核の行追加 {v}[{row}]: {ncpt[row]}")
+                elif ocpt[row] != ncpt[row]:
+                    out.append(f"~ 核 {v}[{row}]: {ocpt[row]} → {ncpt[row]}")
+            for row in ocpt:
+                if row not in ncpt:
+                    out.append(f"- 核の行削除 {v}[{row}]: {ocpt[row]}")
         if ok[v].get("reason") != nk[v].get("reason"):
             out.append(f"~ 理由文 {v} を更新")
     os_, ns = old.get("scenarios", {}), new.get("scenarios", {})
@@ -84,7 +131,7 @@ def diff_results(old, new, threshold_pt=0.1):
             if od is None:
                 out.append(f"+ {sc} / {v}（前回なし）")
                 continue
-            delta = {lab: round((d[lab] - od.get(lab, 0)) * 100, 1) for lab in d}
+            delta = {lab: zero((d[lab] - od.get(lab, 0)) * 100) for lab in d}
             if any(abs(x) >= threshold_pt for x in delta.values()):
                 out.append(f"~ {sc} / {v}: " + ", ".join(f"{lab} {x:+.1f}pt" for lab, x in delta.items()))
     return out or ["（結果の変化なし）"]
