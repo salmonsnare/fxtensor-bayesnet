@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import warnings
 
-from .i18n import obs_name, scenario_name, t
+from .i18n import obs_text, scenario_name, t
 
 FONT_CANDIDATES = [
     "Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", "IPAexGothic", "IPAGothic",
@@ -249,6 +249,35 @@ def _wrap_label(lab, max_in, size_pt=9):
     return "\n".join(lines)
 
 
+def _width_in(text_artist, s):
+    """Text の文字列を s にしたときの描画幅（インチ）。"""
+    fig = text_artist.get_figure()
+    text_artist.set_text(s)
+    return text_artist.get_window_extent(fig.canvas.get_renderer()).width / fig.dpi
+
+
+def _wrap_text(s, fits):
+    """文字列を fits(行) が真になる長さで折り返す。空白で区切り、1 語が長すぎるときは文字単位で切る。"""
+    if fits(s):
+        return s
+    lines, cur = [], ""
+    for word in s.split(" "):
+        cand = f"{cur} {word}" if cur else word
+        if fits(cand):
+            cur = cand
+            continue
+        if cur:
+            lines.append(cur)
+        cur = ""
+        for ch in word:              # 収まらない語（全角の長い名前など）は文字単位で
+            if cur and not fits(cur + ch):
+                lines.append(cur)
+                cur = ""
+            cur += ch
+    lines.append(cur)
+    return "\n".join(lines)
+
+
 def _grouped_bars(ax, labels, series, colors, annotate=True, axes_width_in=None):
     import numpy as np
     k = len(series)
@@ -299,10 +328,20 @@ def plot_marginals(res, cfg, path, dpi=150, ncols=2, lang="ja"):
 # ---------------------------------------------------------------------------
 # (3) ベイズ更新（事前・事後）
 # ---------------------------------------------------------------------------
+HEAD_OFFSET_PT = 24      # 行見出しの下端（パネル上端からの高さ、pt）
+TITLE_TOP_PT = 20        # パネルのタイトルの上端（おおよそ。pad 6pt + 9.5pt の 1 行）
+
+
+def _height_pt(text_artist):
+    fig = text_artist.get_figure()
+    return text_artist.get_window_extent(fig.canvas.get_renderer()).height / fig.dpi * 72
+
+
 def plot_updates(res, cfg, path, dpi=150, lang="ja"):
     plt = _mpl()
     V = cfg["variables"]
-    ups = res["ベイズ更新(基本)"]
+    # 確率 0 で更新できなかった観測は描くものがないので省く（結果の JSON と Markdown には記録される）
+    ups = {k: r for k, r in res["ベイズ更新(基本)"].items() if not r.get("不可能な観測")}
     if not ups:
         return None
     rows = []
@@ -310,6 +349,7 @@ def plot_updates(res, cfg, path, dpi=150, lang="ja"):
         focus = [w for w in r["注目変数の事前"] if w in r["事後"]]
         rows.append((key, r, focus))
     nc = max(1, max(len(f) for _, _, f in rows))
+    heads = []
     fig, axes = plt.subplots(len(rows), nc, figsize=(3.5 * nc, 2.9 * len(rows)), squeeze=False)
     for i, (key, r, focus) in enumerate(rows):
         for j in range(nc):
@@ -326,12 +366,22 @@ def plot_updates(res, cfg, path, dpi=150, lang="ja"):
             tv = r["注目変数の動き"].get(w, {}).get("全変動距離TV")
             tv_s = "" if tv is None else (f"（TV {tv:.3f}）" if lang == "ja" else f" (TV {tv:.3f})")
             ax.set_title(f"{V[w].get('name', w)}{tv_s}", fontsize=9.5)
-        axes[i][0].annotate(t(lang, "obs_annot", obs=obs_name(key), p=r["観測前の確率"] * 100),
-                            xy=(0, 1.2), xycoords="axes fraction", fontsize=10.5, weight="bold", ha="left")
+        # 行見出し（観測名）は配置計算（tight_layout）から外し、パネルのタイトルの上に置く。配置計算に入れると
+        # 見出しの横幅がその行の左端のパネルの余白として扱われ、長い観測名で全パネルが押しつぶされる（#19）
+        ann = axes[i][0].annotate(obs_text(lang, "obs_annot", key, r), xy=(0, 1), xycoords="axes fraction",
+                                  xytext=(0, HEAD_OFFSET_PT), textcoords="offset points", va="bottom",
+                                  fontsize=10.5, weight="bold", ha="left")
+        ann.set_in_layout(False)
+        ann.set_text(_wrap_text(ann.get_text(), lambda s, ann=ann: _width_in(ann, s) <= 3.5 * nc - 0.7))
+        heads.append(_height_pt(ann))
     h, lab = axes[0][0].get_legend_handles_labels()
     fig.legend(h, lab, loc="upper right", ncol=2, frameon=False, fontsize=9)
     fig.suptitle(t(lang, "updates_title"), fontsize=12, x=0.02, ha="left")
-    fig.tight_layout(rect=(0, 0, 1, 0.95), h_pad=3.0)
+    # 見出しの高さ（折り返した行数に応じる）だけ、行の間と上端の余白を足す
+    fs = plt.rcParams["font.size"]
+    extra = HEAD_OFFSET_PT - TITLE_TOP_PT
+    top = 0.95 - (heads[0] + extra) / 72 / fig.get_figheight()
+    fig.tight_layout(rect=(0, 0, 1, top), h_pad=3.0 + (max(heads) + extra) / fs)
     return _save(fig, path, dpi)
 
 

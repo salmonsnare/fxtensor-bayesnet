@@ -3,6 +3,23 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.1] - 2026-10-12
+
+### Fixed
+- Soft evidence: the value reported for an observation that contains soft (likelihood) evidence is the expected
+  likelihood Σ P(x) L(x), which can exceed 1, but it was stored as `観測前の確率` (`evidence_probability`) and shown as a
+  percentage (e.g. `620.0%` for weights `[2, 9]` on a 0.4 / 0.6 prior). Such entries now use the key `尤度の期待値`
+  (`expected_likelihood`), and Markdown and `updates.png` show it as "expected likelihood 6.2" instead of a
+  probability. Hard-evidence entries and all posteriors are unchanged (#17).
+- An observation with probability 0 under the model raised `ValueError` and aborted the whole run (a Traceback and
+  exit code 1 from the CLI). The run now continues: a `UserWarning` is issued, that update is skipped and recorded
+  with `不可能な観測: true` (`impossible`), probability 0 and an empty posterior, and the Markdown output says that the
+  observation has probability 0 (`updates.png` leaves it out, as there is nothing to compare). `Engine.condition_raw`
+  and `Engine.posterior_raw` still raise `ValueError` when called directly (#18).
+- `updates.png`: a long observation name squashed every panel into thin bars, because the row heading counted as part
+  of the first panel when the layout was computed. The heading is now left out of the layout, wrapped to the figure
+  width and placed above the panel titles, so the panels keep their width (#19).
+
 ## [0.10.0] - 2026-10-11
 
 ### Added
@@ -78,6 +95,7 @@ First public release.
 - Examples: weather and equipment maintenance, each in Japanese and English.
 - README in English and Japanese.
 
+[0.10.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.1
 [0.10.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.0
 [0.9.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.9.1
 [0.9.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.9.0

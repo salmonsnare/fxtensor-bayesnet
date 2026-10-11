@@ -80,9 +80,9 @@ How to read it, under these placeholder assumptions only:
 `--plot` writes `effects.png` (observed vs intervened bars) and `sensitivity.png` (tornado chart) in addition to the
 usual figures.
 
-![Observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/ecology_effects.png)
+![Observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/ecology_effects.png)
 
-![Sensitivity](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/ecology_sensitivity.png)
+![Sensitivity](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/ecology_sensitivity.png)
 
 ## Limits
 

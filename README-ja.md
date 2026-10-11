@@ -46,7 +46,7 @@ pytest
 例題の設定は `examples/` にあります（PyPI のパッケージには含まれないので、リポジトリから取得してください）。
 
 ```bash
-curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/examples/weather/config.json
+curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/examples/weather/config.json
 fxtensor-bayesnet --check                       # 既定はカレントディレクトリの config.json
 fxtensor-bayesnet --no-write --md               # Markdown を標準出力へ
 fxtensor-bayesnet --no-write --plot --out-dir out/   # 図だけ out/ に
@@ -135,6 +135,8 @@ fxtensor-bayesnet --no-write --plot --out-dir out/   # 図だけ out/ に
 - **`interventions`**：`{"wear": "小"}` はハードな do(wear=小)、`[0.5, 0.5]` のようなリストは確率的な介入です。その変数に入る辺を切り、下流をすべて計算し直します。上流の変数は事前分布のまま（条件付けとの違い）。根の事前分布を変えるには従来どおり `scenarios` を使います（根への do はシナリオと同じ）。
 - **`effects`**：条件付けと介入を比べます。上の例では、軸受温度の上昇は停止の +14.9pt 増と結びついていますが、do(temp) の ACE は +5.8pt だけで、差の +9.1pt は部品摩耗を通じた交絡です。
 - **`evidence`**：ラベルの文字列はハードな証拠、`{"likelihood": [...]}` はソフト（仮想）証拠です。各ラベルの非負の重み P(報告 \| 真のラベル) で、和が 1 でなくてもかまいません（誤差のあるセンサーや不完全な検出など）。1 項目の証拠はすべて同時に条件付けます。ハード証拠の変数は事後から除き、ソフト証拠の変数は事後を出します。結果のキーは `name`、なければ `vibration=異常, temp=上昇 を観測` のようになります。
+  ハード証拠だけの更新には証拠の事前確率 `観測前の確率`（`evidence_probability`）を出します。ソフト証拠を含む項目では代わりに `尤度の期待値`（`expected_likelihood`）を出します。これは尤度の重みの期待値 Σ P(x) L(x) で、確率ではなく、重みが 1 を超えれば 1 を超えることもあります（% ではなく数値で表示）。
+  モデルの下で確率 0 の観測（CPT の値がすべて 0 のラベルなど）は条件付けできません。その場合も実行は止まりません。警告を出してその観測の更新だけを省き、`不可能な観測: true`（`impossible`）・確率 0・空の事後として結果に記録し、ほかの観測や項目は通常どおり計算します（`updates.png` には描きません）。
 - **`sensitivity`**：目的変数の祖先集合にある各パラメータ（事前分布の 1 要素、または CPT の 1 行の 1 要素）を ±delta 動かし（[0, 1] に切り詰め）、同じ行の残りは比例的に縮めて和を 1 に保ちます。2 ラベルの行は最後のラベルだけ動かします。幅の大きい順に並べます（`--plot` でトルネード図）。
 
 `--md` の出力（抜粋）：
@@ -319,7 +321,7 @@ graph TD
 
 `interventions`・`effects`・同時／ソフト証拠・`sensitivity` を使った「観測と介入の違い」の例です（英語。[README](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/examples/ecology_host_parasitoid/README.md)）。**数値はすべて例示用の仮の値**です。題材は Coroller-Chouraki et al.（bioRxiv、https://doi.org/10.64898/2026.10.06.757064）を参考にしましたが、値はその論文からの推定ではありません。
 
-![生態学の例：観測と介入](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/ecology_effects.png)
+![生態学の例：観測と介入](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/ecology_effects.png)
 
 ## 結果のキー
 
@@ -335,6 +337,7 @@ graph TD
 | `証拠` / `尤度` | `evidence` / `likelihood` | `感度分析` / `上位` | `sensitivity` / `top` |
 | `注目変数の事前` / `注目変数の動き` | `focus_prior` / `focus_movement` | `幅(pt)` | `swing_pt` |
 | `動きの大きさ順(TV)` | `ranking_by_tv` | `検算` | `checks` |
+| `尤度の期待値` | `expected_likelihood` | `不可能な観測` | `impossible` |
 
 対応の全体は `fxtensor_bayesnet.keys.KEY_MAP` にあります。
 
