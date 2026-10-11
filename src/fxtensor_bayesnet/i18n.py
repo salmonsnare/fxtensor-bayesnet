@@ -11,6 +11,8 @@ TEXT = {
         "base": "基本",
         "bayes_header": "## ベイズ更新（基本）",
         "obs_header": "### {obs} を観測（観測前の確率 {p:.1f}%）",
+        "obs_header_soft": "### {obs} を観測（尤度の期待値 {p:.4g}）",
+        "impossible": "確率 0 の観測のため条件付けできません（この観測の更新は省略）",
         "ranking": "動きの大きさ順(TV)",
         "delta": "差",
         "checks": "検算",
@@ -22,6 +24,7 @@ TEXT = {
         "prior": "事前",
         "posterior": "事後",
         "obs_annot": "観測: {obs}（観測前の確率 {p:.1f}%）",
+        "obs_annot_soft": "観測: {obs}（尤度の期待値 {p:.4g}）",
         "updates_title": "ベイズ更新：注目変数の事前・事後",
         "change_pt": "変化（pt）",
         "no_change": "変化なし",
@@ -53,6 +56,8 @@ TEXT = {
         "base": "Base",
         "bayes_header": "## Bayesian updates (base)",
         "obs_header": "### Observed {obs} (prior probability {p:.1f}%)",
+        "obs_header_soft": "### Observed {obs} (expected likelihood {p:.4g})",
+        "impossible": "This observation has probability 0 and cannot be conditioned on (update skipped)",
         "ranking": "Ranking by movement (TV)",
         "delta": "change",
         "checks": "Checks",
@@ -64,6 +69,7 @@ TEXT = {
         "prior": "Prior",
         "posterior": "Posterior",
         "obs_annot": "Observed: {obs} (prior probability {p:.1f}%)",
+        "obs_annot_soft": "Observed: {obs} (expected likelihood {p:.4g})",
         "updates_title": "Bayesian update: prior vs posterior of focus variables",
         "change_pt": "Change (pt)",
         "no_change": "No change",
@@ -101,6 +107,13 @@ def t(lang, key, **kw):
 def scenario_name(lang, name):
     """結果内部のシナリオ名「基本」を表示言語に合わせる。"""
     return t(lang, "base") if name == "基本" else name
+
+
+def obs_text(lang, kind, key, r):
+    """観測の見出し（kind="obs_header" | "obs_annot"）。ハード証拠だけなら観測前の確率（%）、ソフト証拠を含むと尤度の期待値。"""
+    if "尤度の期待値" in r:
+        return t(lang, kind + "_soft", obs=obs_name(key), p=r["尤度の期待値"])
+    return t(lang, kind, obs=obs_name(key), p=r["観測前の確率"] * 100)
 
 
 def obs_name(key):

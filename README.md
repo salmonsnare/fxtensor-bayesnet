@@ -46,7 +46,7 @@ pytest
 Example configs live in `examples/` (they are not part of the PyPI package, so fetch them from the repository).
 
 ```bash
-curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/examples/weather/config.en.json
+curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/examples/weather/config.en.json
 fxtensor-bayesnet --check                            # defaults to ./config.json
 fxtensor-bayesnet --no-write --md --lang en          # Markdown to stdout
 fxtensor-bayesnet --no-write --plot --lang en --out-dir out/   # figures only, into out/
@@ -135,6 +135,8 @@ These keys are optional; configs without them give exactly the same results as b
 - **`interventions`**: `{"wear": "Low"}` is a hard do(wear=Low); a list such as `[0.5, 0.5]` is a stochastic intervention. The variable's incoming edges are cut and everything downstream is recomputed; upstream variables keep their priors (unlike conditioning). `scenarios` remain the way to change root priors; do() on a root is the same as a scenario.
 - **`effects`**: compares conditioning with intervening. In the example, elevated bearing temperature is associated with +14.9 pt more shutdowns, but the ACE of do(temp) is only +5.8 pt; the +9.1 pt gap is confounding through component wear.
 - **`evidence`**: a label string is hard evidence; `{"likelihood": [...]}` is soft (virtual) evidence — non-negative weights P(report \| true label) per label, which need not sum to 1 (e.g. an imperfect sensor or detection). All evidence in one entry is applied jointly. Hard-evidence variables are omitted from the posterior; soft-evidence variables keep one. The key in the results is `name`, or e.g. `vibration=Abnormal, temp=Elevated を観測`.
+  With hard evidence only, each update reports `観測前の確率` (`evidence_probability`), the prior probability of the evidence. As soon as an entry contains soft evidence it reports `尤度の期待値` (`expected_likelihood`) instead: the expectation Σ P(x) L(x) of the likelihood weights, which is not a probability and can exceed 1 when the weights do (it is shown as a plain number, not a percentage).
+  An observation with probability 0 under the model (e.g. a label whose CPT entries are all 0) cannot be conditioned on. It does not stop the run: a warning is printed, that update is skipped and recorded with `不可能な観測: true` (`impossible`), probability 0 and an empty posterior, and every other observation and section is computed as usual (`updates.png` leaves it out).
 - **`sensitivity`**: each parameter (one prior entry or one CPT row entry in the ancestor set of the target) is moved by ±delta (clipped to [0, 1]); the other entries of the same row are rescaled proportionally so the row still sums to 1. For two-label rows only the last label is moved. Results are sorted by swing (a tornado chart with `--plot`).
 
 Excerpt of `--md --lang en` for these additions:
@@ -248,19 +250,19 @@ graph TD
 
 Network structure (`network.png` from `--plot`):
 
-![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/weather_network.png)
+![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/weather_network.png)
 
 Marginals by scenario (`marginals.png`):
 
-![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/weather_marginals.png)
+![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/weather_marginals.png)
 
 Bayesian update, prior vs posterior (`updates.png`). For example, observing heavy rain raises "Low approaching" for the pressure pattern from 25% to 67%:
 
-![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/weather_updates.png)
+![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/weather_updates.png)
 
 Day-over-day change (`diff.png` from `--diff --plot`): the next day, the pressure and humidity priors are revised. Scenarios A and B override the pressure prior (B also humidity), so they change less (B not at all):
 
-![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/weather_diff.png)
+![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/weather_diff.png)
 
 ### Equipment maintenance (`examples/maintenance/config.en.json`)
 
@@ -294,11 +296,11 @@ graph TD
 
 ```
 
-![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/maintenance_network.png)
+![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/maintenance_network.png)
 
-![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/maintenance_marginals.png)
+![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/maintenance_marginals.png)
 
-![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/maintenance_updates.png)
+![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/maintenance_updates.png)
 
 Sample output (maintenance, excerpt of `--md --lang en`):
 
@@ -319,7 +321,7 @@ Sample output (maintenance, excerpt of `--md --lang en`):
 
 Observation vs intervention with `interventions`, `effects`, joint and soft evidence and `sensitivity`; see its [README](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/examples/ecology_host_parasitoid/README.md). **All numbers are illustrative placeholders**; the topic is inspired by Coroller-Chouraki et al. (bioRxiv, https://doi.org/10.64898/2026.10.06.757064), but the values are not estimates from that paper.
 
-![Ecology: observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.0/docs/images/en/ecology_effects.png)
+![Ecology: observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.10.1/docs/images/en/ecology_effects.png)
 
 ## Result keys
 
@@ -335,6 +337,7 @@ By default the keys of `results.json` are Japanese (unchanged since 0.9). With `
 | `証拠` / `尤度` | `evidence` / `likelihood` | `感度分析` / `上位` | `sensitivity` / `top` |
 | `注目変数の事前` / `注目変数の動き` | `focus_prior` / `focus_movement` | `幅(pt)` | `swing_pt` |
 | `動きの大きさ順(TV)` | `ranking_by_tv` | `検算` | `checks` |
+| `尤度の期待値` | `expected_likelihood` | `不可能な観測` | `impossible` |
 
 The full mapping is `fxtensor_bayesnet.keys.KEY_MAP`.
 

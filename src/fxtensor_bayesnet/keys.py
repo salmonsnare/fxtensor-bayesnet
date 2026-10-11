@@ -17,6 +17,8 @@ _SCENARIO = {"上書き": "overrides", "周辺": "marginals"}
 _UPDATE = {
     "証拠": ("evidence", {"*": (None, {"尤度": "likelihood"})}),
     "観測前の確率": "evidence_probability",
+    "尤度の期待値": "expected_likelihood",
+    "不可能な観測": "impossible",
     "事後": "posterior",
     "注目変数の事前": "focus_prior",
     "注目変数の動き": ("focus_movement", {"*": (None, _MOVE)}),

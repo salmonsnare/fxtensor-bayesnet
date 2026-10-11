@@ -1,6 +1,8 @@
 """推論：シナリオ別の周辺分布、観測によるベイズ更新、要因の逆算、介入と因果効果、感度分析、einsum による検算。"""
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from fxtensor_salmon import FXTensor
 
@@ -209,6 +211,18 @@ def run(cfg, max_joint=MAX_JOINT):
     skipped_inv = []
     for ob in cfg.get("observations", []):
         key, evidence, simple = normalize_observation(ob)
+        # ソフト証拠を含むと ev は確率ではなく尤度の期待値 Σ P(x) L(x)（1 を超えうる）なので別のキーにする
+        ev_key = "観測前の確率" if all(isinstance(e, str) for e in evidence.values()) else "尤度の期待値"
+        focus = ob.get("focus") or net.roots
+        if not float(net.contract(base_pri, [], evidence=evidence_vectors(net, evidence))) > 0:
+            # 確率 0 の観測は全体を止めず、その観測の更新だけ省いて結果に記録する
+            warnings.warn(f"観測「{key}」は確率 0 のため条件付けできません（この観測の更新は省略します）",
+                          stacklevel=2)
+            entry = {ev_key: 0.0, "不可能な観測": True, "事後": {},
+                     "注目変数の事前": {w: as_dict(net.labels[w], eng.marginal(w)) for w in focus},
+                     "注目変数の動き": {}, "動きの大きさ順(TV)": []}
+            res["ベイズ更新(基本)"][key] = entry if simple else {"証拠": _evidence_json(evidence), **entry}
+            continue
         if simple:
             (v, lab), = evidence.items()
             ev, raw = eng.condition_raw(v, lab)
@@ -242,11 +256,10 @@ def run(cfg, max_joint=MAX_JOINT):
                 del J
         post = {w: as_dict(net.labels[w], a) for w, a in raw.items()}
         hard = {w for w, e in evidence.items() if isinstance(e, str)}
-        focus = ob.get("focus") or net.roots
         prior_marg = {w: eng.marginal(w) for w in focus}
         mv = {w: movement(prior_marg[w], post[w], net.labels[w]) for w in focus if w not in hard}
         ranking = sorted(mv, key=lambda w: -mv[w]["全変動距離TV"])
-        entry = {"観測前の確率": round(ev, 4), "事後": post,
+        entry = {ev_key: round(ev, 4), "事後": post,
                  "注目変数の事前": {w: as_dict(net.labels[w], prior_marg[w]) for w in focus},
                  "注目変数の動き": mv, "動きの大きさ順(TV)": ranking}
         if not simple:

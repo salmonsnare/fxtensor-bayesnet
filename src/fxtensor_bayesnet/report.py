@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 
-from .i18n import obs_name, scenario_name, t
+from .i18n import obs_text, scenario_name, t
 
 
 def render_markdown(res, cfg, lang="ja"):
@@ -25,7 +25,10 @@ def render_markdown(res, cfg, lang="ja"):
         L.append("")
     L.append(t(lang, "bayes_header"))
     for k, r in res["ベイズ更新(基本)"].items():
-        L.append(t(lang, "obs_header", obs=obs_name(k), p=r["観測前の確率"] * 100))
+        L.append(obs_text(lang, "obs_header", k, r))
+        if r.get("不可能な観測"):
+            L += [f"- {t(lang, 'impossible')}", ""]
+            continue
         for w, d in r["事後"].items():
             L.append(f"- {w}: " + " / ".join(f"{a} {b*100:.1f}%" for a, b in d.items()))
         L.append(f"- {t(lang, 'ranking')}: {' > '.join(r['動きの大きさ順(TV)'])}")
