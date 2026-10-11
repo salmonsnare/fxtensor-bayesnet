@@ -1,0 +1,101 @@
+{
+  "as_of": "2026-10-11",
+  "horizon": "One breeding season (per nest)",
+  "note": "Illustrative placeholder numbers only, NOT estimates from data or from any paper. Topic inspired by Coroller-Chouraki et al. (bioRxiv, https://doi.org/10.64898/2026.10.06.757064); the structure is a hypothesis for demonstration.",
+  "variables": {
+    "agri": {"name": "Agricultural intensity", "labels": ["Low", "Medium", "High"]},
+    "weather": {"name": "Breeding-season weather", "labels": ["Good", "Poor"]},
+    "insect": {"name": "Flying insects (food)", "labels": ["Scarce", "Abundant"]},
+    "density": {"name": "Nest density", "labels": ["Low", "High"]},
+    "parasitoid": {"name": "Parasitoid wasp parasitism rate", "labels": ["Low", "High"]},
+    "fly": {"name": "Parasitic fly load", "labels": ["Low", "High"]},
+    "fledge": {"name": "Swallow fledging success", "labels": ["Low", "High"]}
+  },
+  "priors": {
+    "agri": {"p": [0.3, 0.4, 0.3], "reason": "Placeholder: nest boxes spread roughly evenly along the gradient"},
+    "weather": {"p": [0.7, 0.3], "reason": "Placeholder: poor-weather seasons in 3 of 10 years"}
+  },
+  "kernels": {
+    "insect": {
+      "parents": ["agri", "weather"],
+      "reason": "Placeholder: intensification and poor weather reduce flying insects",
+      "cpt": {
+        "Low|Good": [0.2, 0.8],
+        "Low|Poor": [0.5, 0.5],
+        "Medium|Good": [0.35, 0.65],
+        "Medium|Poor": [0.65, 0.35],
+        "High|Good": [0.6, 0.4],
+        "High|Poor": [0.85, 0.15]
+      }
+    },
+    "density": {
+      "parents": ["agri"],
+      "reason": "Placeholder: intensification lowers nesting density",
+      "cpt": {
+        "Low": [0.4, 0.6],
+        "Medium": [0.5, 0.5],
+        "High": [0.65, 0.35]
+      }
+    },
+    "parasitoid": {
+      "parents": ["agri", "density"],
+      "reason": "Placeholder: intensification lowers parasitism by the wasp; higher host density raises it (density dependence)",
+      "cpt": {
+        "Low|Low": [0.5, 0.5],
+        "Low|High": [0.3, 0.7],
+        "Medium|Low": [0.6, 0.4],
+        "Medium|High": [0.45, 0.55],
+        "High|Low": [0.8, 0.2],
+        "High|High": [0.7, 0.3]
+      }
+    },
+    "fly": {
+      "parents": ["density", "parasitoid"],
+      "reason": "Placeholder: dense nesting raises fly load; the parasitoid wasp suppresses the flies",
+      "cpt": {
+        "Low|Low": [0.55, 0.45],
+        "Low|High": [0.75, 0.25],
+        "High|Low": [0.3, 0.7],
+        "High|High": [0.55, 0.45]
+      }
+    },
+    "fledge": {
+      "parents": ["insect", "fly", "weather"],
+      "reason": "Placeholder: food, parasite load and weather determine fledging success",
+      "cpt": {
+        "Scarce|Low|Good": [0.4, 0.6],
+        "Scarce|Low|Poor": [0.6, 0.4],
+        "Scarce|High|Good": [0.55, 0.45],
+        "Scarce|High|Poor": [0.75, 0.25],
+        "Abundant|Low|Good": [0.15, 0.85],
+        "Abundant|Low|Poor": [0.3, 0.7],
+        "Abundant|High|Good": [0.25, 0.75],
+        "Abundant|High|Poor": [0.45, 0.55]
+      }
+    }
+  },
+  "scenarios": {
+    "A: High intensity everywhere": {"agri": [0, 0, 1]},
+    "B: Extensification (Low intensity)": {"agri": [1, 0, 0]},
+    "C: Poor-weather season": {"weather": [0, 1]}
+  },
+  "interventions": {
+    "Release parasitoids (parasitoid=High)": {"parasitoid": "High"},
+    "Remove flies from nests (fly=Low)": {"fly": "Low"},
+    "Treat half of the nests against flies": {"fly": [0.5, 0.5]}
+  },
+  "effects": [
+    {"treatment": "parasitoid", "outcome": "fledge", "outcome_label": "High"},
+    {"treatment": "fly", "outcome": "fledge", "outcome_label": "High"},
+    {"treatment": "density", "outcome": "fledge", "outcome_label": "High"}
+  ],
+  "observations": [
+    {"var": "fledge", "label": "Low", "focus": ["agri", "weather"]},
+    {"var": "fly", "label": "High", "focus": ["agri", "weather", "density", "parasitoid"]},
+    {"evidence": {"fly": "High", "weather": "Poor"}, "focus": ["agri", "density", "parasitoid"]},
+    {"name": "Fly count suggests High (imperfect count)", "evidence": {"fly": {"likelihood": [0.2, 0.9]}},
+     "focus": ["agri", "density", "parasitoid", "fly"]}
+  ],
+  "sensitivity": {"target": "fledge", "label": "High", "delta": 0.05, "top": 8},
+  "outputs": ["insect", "parasitoid", "fly", "fledge"]
+}

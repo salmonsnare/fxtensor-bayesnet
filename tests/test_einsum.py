@@ -4,6 +4,8 @@ import numpy as np
 from fxtensor_bayesnet import Engine, Net, run
 from fxtensor_bayesnet.network import graph_extend, self_test_graph_extend
 
+from conftest import assert_close
+
 
 def base_priors(cfg):
     return {v: cfg["priors"][v]["p"] for v in cfg["priors"]}
@@ -42,9 +44,9 @@ def test_ancestral_mode_gives_same_results(example_cfg):
     b = run(example_cfg, max_joint=1)
     assert a["検算"]["計算モード"] == "joint"
     assert b["検算"]["計算モード"] == "ancestral"
-    assert a["シナリオ"] == b["シナリオ"]
+    assert_close(a["シナリオ"], b["シナリオ"])
     for k in a["ベイズ更新(基本)"]:
-        assert a["ベイズ更新(基本)"][k]["事後"] == b["ベイズ更新(基本)"][k]["事後"]
+        assert_close(a["ベイズ更新(基本)"][k]["事後"], b["ベイズ更新(基本)"][k]["事後"])
 
 
 def test_run_self_checks_are_small(example_cfg):

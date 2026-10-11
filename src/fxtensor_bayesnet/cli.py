@@ -13,11 +13,13 @@
     --diff [PATH]     設定（と結果）の前回スナップショットとの差分を表示
                       PATH 省略時は <history-dir> の as_of より前で最新のもの
     --format-config   設定ファイルを読みやすい形（核の1行=1行）に整形して書き戻す
-    --plot            図を <out-dir> に出力（network / marginals / updates。--diff と併用で diff）
+    --plot            図を <out-dir> に出力（network / marginals / updates / effects / sensitivity。
+                      --diff と併用で diff）
                       matplotlib が必要: pip install 'fxtensor-bayesnet[plot]'
     --plot-format F.. 図の形式 png / svg（複数可。既定: png）
     --plot-dpi N      PNG の解像度（既定: 150）
-    --lang ja|en      Markdown と図の見出し・凡例の言語（既定: ja。results.json のキーは固定）
+    --lang ja|en      Markdown と図の見出し・凡例の言語（既定: ja。results.json のキーには影響しない）
+    --json-keys ja|en results.json と標準出力の JSON のキーの言語（既定: ja。スナップショットは常に ja）
 """
 from __future__ import annotations
 
@@ -31,6 +33,7 @@ from .config import ConfigError, config_hash, dump_config, load_config
 from .history import (check_snapshot_free, diff_configs, diff_results, previous_snapshot,
                       resolve_diff_path, snapshot)
 from .inference import run
+from .keys import to_english_keys
 from .report import render_markdown, render_mermaid
 
 
@@ -52,6 +55,7 @@ def build_parser():
     ap.add_argument("--plot-format", nargs="+", choices=["png", "svg"], default=["png"])
     ap.add_argument("--plot-dpi", type=int, default=150)
     ap.add_argument("--lang", choices=["ja", "en"], default="ja")
+    ap.add_argument("--json-keys", choices=["ja", "en"], default="ja")
     return ap
 
 
@@ -144,10 +148,11 @@ def main(argv=None):
 
     res = run(cfg)
     md = render_markdown(res, cfg, a.lang)
+    out_res = to_english_keys(res) if a.json_keys == "en" else res
     if not a.no_write:
         os.makedirs(out_dir, exist_ok=True)
         with open(os.path.join(out_dir, "results.json"), "w", encoding="utf-8") as f:
-            json.dump(res, f, ensure_ascii=False, indent=2)
+            json.dump(out_res, f, ensure_ascii=False, indent=2)
         with open(os.path.join(out_dir, "results.md"), "w", encoding="utf-8") as f:
             f.write(md)
         with open(os.path.join(out_dir, "model.mmd"), "w", encoding="utf-8") as f:
@@ -162,7 +167,7 @@ def main(argv=None):
             print(str(e), file=sys.stderr)
             return 1
         print(f"スナップショット保存: {d}", file=sys.stderr)
-    print(md if a.md else json.dumps(res, ensure_ascii=False, indent=2))
+    print(md if a.md else json.dumps(out_res, ensure_ascii=False, indent=2))
     return 0
 
 

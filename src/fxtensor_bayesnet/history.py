@@ -114,6 +114,14 @@ def diff_configs(old, new):
             out.append(f"~ シナリオ {s}: {os_.get(s)} → {ns.get(s)}")
     if old.get("observations") != new.get("observations"):
         out.append("~ observations を変更")
+    oi, ni = old.get("interventions") or {}, new.get("interventions") or {}
+    for s in sorted(set(oi) | set(ni)):
+        if oi.get(s) != ni.get(s):
+            out.append(f"~ 介入 {s}: {oi.get(s)} → {ni.get(s)}")
+    if (old.get("effects") or []) != (new.get("effects") or []):
+        out.append("~ effects を変更")
+    if old.get("sensitivity") != new.get("sensitivity"):
+        out.append("~ sensitivity を変更")
     if old.get("outputs") != new.get("outputs"):
         out.append(f"~ outputs: {old.get('outputs')} → {new.get('outputs')}")
     return out or ["（設定の変更なし）"]
@@ -134,4 +142,22 @@ def diff_results(old, new, threshold_pt=0.1):
             delta = {lab: zero((d[lab] - od.get(lab, 0)) * 100) for lab in d}
             if any(abs(x) >= threshold_pt for x in delta.values()):
                 out.append(f"~ {sc} / {v}: " + ", ".join(f"{lab} {x:+.1f}pt" for lab, x in delta.items()))
+    for name, r in (new.get("介入") or {}).items():
+        o = (old.get("介入") or {}).get(name)
+        if not o:
+            out.append(f"+ 介入 {name}（前回なし）")
+            continue
+        for v, d in r["周辺"].items():
+            od = o["周辺"].get(v)
+            if od is None:
+                continue
+            delta = {lab: zero((d[lab] - od.get(lab, 0)) * 100) for lab in d}
+            if any(abs(x) >= threshold_pt for x in delta.values()):
+                out.append(f"~ 介入 {name} / {v}: " + ", ".join(f"{lab} {x:+.1f}pt" for lab, x in delta.items()))
+    for key, e in (new.get("因果効果") or {}).items():
+        o = (old.get("因果効果") or {}).get(key)
+        if not o:
+            out.append(f"+ 因果効果 {key}（前回なし）")
+        elif abs((e["ACE"] - o["ACE"]) * 100) >= threshold_pt:
+            out.append(f"~ 因果効果 {key}: ACE {o['ACE'] * 100:+.1f}pt → {e['ACE'] * 100:+.1f}pt")
     return out or ["（結果の変化なし）"]

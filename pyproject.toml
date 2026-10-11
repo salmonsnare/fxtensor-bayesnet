@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fxtensor-bayesnet"
-version = "0.9.1"
-description = "Config-driven inference for discrete Bayesian networks: scenario comparison, Bayesian updating, root-cause inference and daily snapshots (built on fxtensor-salmon)"
+version = "0.10.0"
+description = "Config-driven inference for discrete Bayesian networks: scenario comparison, Bayesian updating, root-cause inference, do-interventions and causal effects, sensitivity analysis and daily snapshots (built on fxtensor-salmon)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
@@ -16,6 +16,7 @@ authors = [
 keywords = [
     "bayesian-network", "probabilistic-graphical-model", "markov-kernel", "conditional-probability",
     "bayesian-inference", "scenario-analysis", "decision-support", "fxtensor",
+    "causal-inference", "do-calculus", "sensitivity-analysis",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

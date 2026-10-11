@@ -9,7 +9,7 @@ from fxtensor_salmon import FXTensor
 
 from .config import topo_order
 
-MAX_WIRING = 5_000_000     # 配線核（密）の要素数上限
+MAX_WIRING = 1_000_000     # 配線核（密）の要素数上限。超えるときは同時分布の直接和 / einsum に切り替える
 
 
 class Net:
@@ -36,31 +36,47 @@ class Net:
         self.letter = {v: string.ascii_letters[i] for i, v in enumerate(self.order)}
 
     # --- 祖先集合 ---
-    def ancestors(self, names):
+    def ancestors(self, names, cut=()):
+        """names の祖先集合（自身を含む）。cut の変数は親への辺を切ったものとして扱う（do のグラフ手術）。"""
         out, stack = set(), list(names)
         while stack:
             v = stack.pop()
             if v in out:
                 continue
             out.add(v)
-            stack += self.parents.get(v, [])
+            if v not in cut:
+                stack += self.parents.get(v, [])
         return [v for v in self.order if v in out]
 
     def joint_size(self):
         return int(np.prod([len(self.labels[v]) for v in self.order]))
 
     # --- einsum による直接計算（検算・メモリ節約経路） ---
-    def einsum_query(self, priors, targets, free_roots=False):
-        """祖先集合だけを使い、targets の同時分布（free_roots=True なら 根→targets の核）を einsum で直接計算。"""
-        anc = self.ancestors(targets)
+    def contract(self, priors, targets, evidence=None, do=None, cpt=None, free_roots=False):
+        """変数消去：祖先集合の因子だけを einsum で縮約し、targets の（正規化しない）同時分布を返す。
+
+        evidence: {変数: 尤度ベクトル}（ハード証拠は one-hot）。結果は P(targets, evidence) になる。
+        do: {変数: 分布}。その変数の核を分布で置き換える（グラフ手術、切断因子分解）。
+        cpt: {変数: ndarray}。核（または根の事前分布）を差し替える（感度分析用）。
+        free_roots=True なら 根→targets の核（根の事前分布を掛けない）。
+        同時分布全体は作らない（np.einsum の optimize で小さい中間テンソルだけを作る）。
+        """
+        evidence, do, cpt = evidence or {}, do or {}, cpt or {}
+        anc = self.ancestors(list(targets) + list(evidence), cut=set(do))
         ops, subs = [], []
         for v in anc:
-            if v in self.parents:
-                ops.append(self.cpt[v])
+            if v in do:
+                ops.append(np.asarray(do[v], float))
+                subs.append(self.letter[v])
+            elif v in self.parents:
+                ops.append(cpt.get(v, self.cpt[v]))
                 subs.append("".join(self.letter[p] for p in self.parents[v]) + self.letter[v])
             elif not free_roots:
-                ops.append(np.asarray(priors[v], float))
+                ops.append(np.asarray(cpt.get(v, priors[v]), float))
                 subs.append(self.letter[v])
+        for v, lik in evidence.items():
+            ops.append(np.asarray(lik, float))
+            subs.append(self.letter[v])
         if free_roots:   # 祖先に入らない根も核の入力にする（その根には依存しない＝定数）
             for r in self.roots:
                 ops.append(np.ones(len(self.labels[r])))
@@ -70,6 +86,10 @@ class Net:
         if not ops:
             raise ValueError("empty query")
         return np.einsum(",".join(subs) + "->" + out, *ops, optimize=True)
+
+    def einsum_query(self, priors, targets, free_roots=False):
+        """祖先集合だけを使い、targets の同時分布（free_roots=True なら 根→targets の核）を einsum で直接計算。"""
+        return self.contract(priors, targets, free_roots=free_roots)
 
     def brute_force_joint(self, priors):
         """全変数の同時分布を einsum 一発で（検算用）。軸の順は self.order。"""
@@ -92,7 +112,9 @@ class Net:
         return st
 
     def build_joint(self, priors):
-        """根の状態（tensor_product）に、トポロジカル順に子を graph_extend で足して同時状態を作る。"""
+        """根の状態（tensor_product）に、トポロジカル順に子を graph_extend で足して同時状態を作る。
+
+        軸の順は「根（self.roots の順）→ 子（トポロジカル順）」。self.order とは一致しないことがある。"""
         st = self.prior_state(priors)
         names = list(self.roots)
         for v in self.order:
@@ -100,6 +122,12 @@ class Net:
                 st = graph_extend(st, self.kernels[v], [names.index(p) for p in self.parents[v]])
                 names.append(v)
         return st, names
+
+
+def wiring_size(in_labels, out_idx):
+    """wiring(in_labels, out_idx) が作る密テンソルの要素数。"""
+    dims = [len(lab) for lab in in_labels]
+    return int(np.prod(dims)) * int(np.prod([dims[i] for i in out_idx] or [1]))
 
 
 def wiring(in_labels, out_idx):
