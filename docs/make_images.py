@@ -7,7 +7,7 @@ import copy
 import os
 
 from fxtensor_bayesnet import load_config, run
-from fxtensor_bayesnet.plot import plot_diff, plot_marginals, plot_network, plot_updates
+from fxtensor_bayesnet.plot import plot_diff, plot_effects, plot_marginals, plot_network, plot_sensitivity, plot_updates
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -37,6 +37,18 @@ def main():
                   old_label=cfg["as_of"], new_label=new["as_of"], lang=lang)
         print(out, sorted(f for f in os.listdir(out) if f.endswith(".png")))
 
+    ecology_images()
+
+
+def ecology_images():
+    """English-only example: observed vs intervened (effects) and sensitivity (tornado)."""
+    out = os.path.join(ROOT, "docs", "images", "en")
+    cfg = load_config(os.path.join(ROOT, "examples", "ecology_host_parasitoid", "config.json"))
+    res = run(cfg)
+    plot_effects(res, cfg, os.path.join(out, "ecology_effects.png"), lang="en")
+    plot_sensitivity(res, cfg, os.path.join(out, "ecology_sensitivity.png"), lang="en")
+
 
 if __name__ == "__main__":
-    main()
+    import sys
+    ecology_images() if "--ecology-only" in sys.argv else main()

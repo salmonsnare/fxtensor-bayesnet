@@ -100,15 +100,85 @@ def validate(cfg):
     for name, ov in cfg.get("scenarios", {}).items():
         for v, p in ov.items():
             if v not in P:
-                errs.append(f"scenarios.{name}: {v} は根の変数ではない")
+                errs.append(f"scenarios.{name}: {v} は根の変数ではない（根でない変数への介入は interventions を使う）")
             else:
                 check_dist(f"scenarios.{name}.{v}", p, len(V[v]["labels"]))
-    for ob in cfg.get("observations", []):
-        if ob.get("var") not in V or ob.get("label") not in V.get(ob.get("var"), {}).get("labels", []):
+
+    def labels_of(v):
+        return V.get(v, {}).get("labels", [])
+
+    for i, ob in enumerate(cfg.get("observations", [])):
+        if not isinstance(ob, dict):
+            errs.append(f"observations[{i}]: オブジェクトが必要 {ob}")
+            continue
+        if "evidence" in ob:
+            ev = ob["evidence"]
+            if "var" in ob or "label" in ob:
+                errs.append(f"observations[{i}]: evidence と var/label は同時に書けない")
+            if not isinstance(ev, dict) or not ev:
+                errs.append(f"observations[{i}]: evidence は空でないオブジェクト {{変数: ラベル or {{\"likelihood\": [...]}}}}")
+                ev = {}
+            for v, e in ev.items():
+                if v not in V:
+                    errs.append(f"observations[{i}].evidence: {v} が未定義")
+                elif isinstance(e, str):
+                    if e not in labels_of(v):
+                        errs.append(f"observations[{i}].evidence.{v}: ラベル {e} がない")
+                elif isinstance(e, dict) and set(e) == {"likelihood"}:
+                    lik = e["likelihood"]
+                    n = len(labels_of(v))
+                    if not isinstance(lik, list) or len(lik) != n:
+                        errs.append(f"observations[{i}].evidence.{v}.likelihood: 長さ {n} のリストが必要（{lik}）")
+                    elif any(not isinstance(x, (int, float)) or x < 0 for x in lik) or not any(x > 0 for x in lik):
+                        errs.append(f"observations[{i}].evidence.{v}.likelihood: 非負で、少なくとも1つは正の数（{lik}）")
+                else:
+                    errs.append(f"observations[{i}].evidence.{v}: ラベル文字列か {{\"likelihood\": [...]}} が必要（{e}）")
+        elif ob.get("var") not in V or ob.get("label") not in labels_of(ob.get("var")):
             errs.append(f"observations: 不正な観測 {ob}")
         for f in ob.get("focus", []):
             if f not in V:
                 errs.append(f"observations: focus {f} が未定義")
+    for name, do in (cfg.get("interventions") or {}).items():
+        if not isinstance(do, dict) or not do:
+            errs.append(f"interventions.{name}: 空でないオブジェクト {{変数: ラベル or 分布}} が必要")
+            continue
+        for v, spec in do.items():
+            if v not in V:
+                errs.append(f"interventions.{name}: {v} が未定義")
+            elif isinstance(spec, str):
+                if spec not in labels_of(v):
+                    errs.append(f"interventions.{name}.{v}: ラベル {spec} がない")
+            else:
+                check_dist(f"interventions.{name}.{v}", spec, len(labels_of(v)))
+    effects = cfg.get("effects") or []
+    if not isinstance(effects, list):
+        errs.append("effects: リストが必要")
+        effects = []
+    for i, e in enumerate(effects):
+        x, y = (e.get("treatment"), e.get("outcome")) if isinstance(e, dict) else (None, None)
+        if x not in V or y not in V:
+            errs.append(f"effects[{i}]: treatment と outcome は定義済みの変数が必要 {e}")
+            continue
+        if x == y:
+            errs.append(f"effects[{i}]: treatment と outcome が同じ変数")
+        for k, var in (("outcome_label", y), ("treated", x), ("control", x)):
+            if k in e and e[k] not in labels_of(var):
+                errs.append(f"effects[{i}].{k}: {var} にラベル {e[k]} がない")
+        if e.get("treated", labels_of(x)[-1]) == e.get("control", labels_of(x)[0]):
+            errs.append(f"effects[{i}]: treated と control が同じラベル")
+    sens = cfg.get("sensitivity")
+    for i, s_ in enumerate(sens if isinstance(sens, list) else [sens] if sens else []):
+        if not isinstance(s_, dict) or s_.get("target") not in V:
+            errs.append(f"sensitivity[{i}]: target は定義済みの変数が必要 {s_}")
+            continue
+        if "label" in s_ and s_["label"] not in labels_of(s_["target"]):
+            errs.append(f"sensitivity[{i}].label: {s_['target']} にラベル {s_['label']} がない")
+        d = s_.get("delta", 0.05)
+        if not isinstance(d, (int, float)) or not 0 < d < 1:
+            errs.append(f"sensitivity[{i}].delta: 0 より大きく 1 より小さい数（{d}）")
+        tp = s_.get("top", 10)
+        if not isinstance(tp, int) or tp < 1:
+            errs.append(f"sensitivity[{i}].top: 1 以上の整数（{tp}）")
     for o in cfg.get("outputs", []):
         if o not in V:
             errs.append(f"outputs: {o} が未定義")

@@ -4,6 +4,8 @@
 - plot_marginals … 出力変数ごとの周辺分布の棒グラフ（シナリオ比較）
 - plot_updates   … 観測ごとの注目変数の事前・事後比較
 - plot_diff      … 前回スナップショットからの周辺分布の変化量（pt）
+- plot_effects   … 観測（条件付け）と介入（do）の比較（effects があるとき）
+- plot_sensitivity … 感度分析のトルネード図（sensitivity があるとき）
 """
 from __future__ import annotations
 
@@ -393,15 +395,82 @@ def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label=None, new_label=No
 
 
 # ---------------------------------------------------------------------------
+# (5) 観測と介入の比較
+# ---------------------------------------------------------------------------
+def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
+    effs = res.get("因果効果")
+    if not effs:
+        return None
+    plt = _mpl()
+    V = cfg["variables"]
+    nr, nc = _grid(len(effs), ncols)
+    fig, axes = plt.subplots(nr, nc, figsize=(4.2 * nc, 3.4 * nr), squeeze=False)
+    for ax, (key, e) in zip(axes.flat, effs.items()):
+        levs = list(e["P(結果|do(処置))"])
+        obs = [e["P(結果|処置)(観測)"][lev] or 0.0 for lev in levs]
+        do = [e["P(結果|do(処置))"][lev] for lev in levs]
+        _grouped_bars(ax, levs, [(t(lang, "observed"), obs), (t(lang, "intervened"), do)], [PRIOR_COLOR, POST_COLOR],
+                      axes_width_in=3.4)
+        x, y = e["処置"], e["結果"]
+        od = "—" if e["観測上の差"] is None else f"{e['観測上の差'] * 100:+.1f}"
+        ax.set_title(f"{V[x].get('name', x)} → {V[y].get('name', y)}={e['結果のラベル']}\n"
+                     + t(lang, "effect_annot", od=od, ace=f"{e['ACE'] * 100:+.1f}"), fontsize=9.5)
+        ax.set_xlabel(f"{x}", fontsize=9)
+    for ax in list(axes.flat)[len(effs):]:
+        ax.axis("off")
+    h, lab = axes.flat[0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=2, frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.01))
+    fig.suptitle(t(lang, "effects_title"), fontsize=12)
+    fig.tight_layout(rect=(0, 0.06, 1, 0.95))
+    return _save(fig, path, dpi)
+
+
+# ---------------------------------------------------------------------------
+# (6) 感度分析（トルネード図）
+# ---------------------------------------------------------------------------
+def plot_sensitivity(res, cfg, path, dpi=150, lang="ja"):
+    sens = res.get("感度分析")
+    if not sens:
+        return None
+    plt = _mpl()
+    n = len(sens)
+    nrows = max(len(s["上位"]) for s in sens.values())
+    fig, axes = plt.subplots(1, n, figsize=(6.4 * n, 0.36 * nrows + 1.8), squeeze=False)
+    for ax, (key, s) in zip(axes[0], sens.items()):
+        base = s["基準のP"] * 100
+        rows = s["上位"][::-1]
+        ys = range(len(rows))
+        lo = [r["P(下げたとき)"] * 100 - base for r in rows]
+        hi = [r["P(上げたとき)"] * 100 - base for r in rows]
+        ax.barh(ys, lo, left=base, color="#3b78b5", height=0.6, label=t(lang, "sens_low"))
+        ax.barh(ys, hi, left=base, color="#d9822b", height=0.6, label=t(lang, "sens_high"))
+        ax.axvline(base, color="#333333", lw=0.8)
+        ax.set_yticks(list(ys))
+        ax.set_yticklabels([r["パラメータ"] for r in rows], fontsize=8)
+        ax.set_xlabel("%", fontsize=9)
+        ax.set_title(t(lang, "sens_title", y=key) + f"（±{s['変化量delta']}）" if lang == "ja"
+                     else t(lang, "sens_title", y=key) + f" (±{s['変化量delta']})", fontsize=10)
+        ax.grid(axis="x", alpha=0.3)
+        ax.set_axisbelow(True)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+    h, lab = axes[0][0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=2, frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.01))
+    fig.tight_layout(rect=(0, 0.07, 1, 1))
+    return _save(fig, path, dpi)
+
+
+# ---------------------------------------------------------------------------
 # まとめて出力
 # ---------------------------------------------------------------------------
 def plot_all(res, cfg, out_dir, formats=("png",), dpi=150, prefix="", lang="ja"):
-    """network / marginals / updates を out_dir に書き、書いたパスのリストを返す。"""
+    """network / marginals / updates（と effects / sensitivity）を out_dir に書き、書いたパスのリストを返す。"""
     paths = []
     for fmt in formats:
         paths.append(plot_network(cfg, os.path.join(out_dir, f"{prefix}network.{fmt}"), dpi, lang=lang))
         paths.append(plot_marginals(res, cfg, os.path.join(out_dir, f"{prefix}marginals.{fmt}"), dpi, lang=lang))
-        p = plot_updates(res, cfg, os.path.join(out_dir, f"{prefix}updates.{fmt}"), dpi, lang=lang)
-        if p:
-            paths.append(p)
+        for fn, name in ((plot_updates, "updates"), (plot_effects, "effects"), (plot_sensitivity, "sensitivity")):
+            p = fn(res, cfg, os.path.join(out_dir, f"{prefix}{name}.{fmt}"), dpi, lang=lang)
+            if p:
+                paths.append(p)
     return paths

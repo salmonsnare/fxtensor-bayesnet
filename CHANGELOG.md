@@ -3,6 +3,44 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0] - 2026-10-11
+
+### Added
+- `interventions`: do() on any variable, root or non-root, by graph surgery. A label gives a hard intervention and a
+  probability list a stochastic one. Results (`介入`) are cross-checked against a direct truncated-factorisation
+  einsum (`介入:切断因子分解との最大差`) (#3).
+- `effects`: for each `{treatment, outcome}`, P(outcome | do(X=x)) and P(outcome | X=x) for every level, plus the ACE,
+  the observational difference and the gap between them (confounding) (`因果効果`) (#3).
+- `observations[].evidence`: several observations conditioned on jointly, and soft (likelihood / virtual) evidence
+  `{"likelihood": [...]}`, computed by variable elimination. Optional `name` for the result key. The `var`/`label`
+  form still works and gives identical results (#4).
+- `sensitivity`: one-at-a-time sensitivity of P(target=label) to every prior and CPT entry in the target's ancestor
+  set (±delta with proportional co-variation), sorted by swing (`感度分析`) (#5).
+- `--plot` also writes `effects.png` (observed vs intervened) and `sensitivity.png` (tornado chart) when the
+  corresponding keys are set (#7). Markdown output has sections for interventions, effects and sensitivity.
+- `--json-keys ja|en` and `to_english_keys(res)` write `results.json` / stdout JSON with English keys. The default
+  stays Japanese, and snapshots always keep the Japanese keys so `--diff` works across versions. Names chosen by the
+  user are never translated (#6).
+- Python API: `Engine.posterior_raw(evidence)`, `Net.contract(...)` (variable elimination with evidence, do() and CPT
+  overrides), `do_config(cfg, do)`, `fxtensor_bayesnet.causal.sensitivity`.
+- `--diff` reports changes to `interventions`, `effects` and `sensitivity`, and changes in intervention marginals
+  and ACEs.
+- Example `examples/ecology_host_parasitoid/` (English): observation vs intervention in a host–parasite–parasitoid
+  cascade, with a script that checks the ACEs against an independent truncated factorisation. All numbers are
+  illustrative placeholders (#8).
+
+### Fixed
+- The built-in cross-check `einsum(全同時)との最大差` failed (`AssertionError`) when a root variable was declared in
+  `variables` after a non-root variable. The declaration order no longer matters (#1).
+- `MemoryError: 配線核が大きすぎます` when observations were applied with a joint of roughly 560k–2M elements
+  (e.g. 13 three-state variables). In joint mode, marginals and pairs now fall back to summing the joint directly
+  when the dense wiring kernel would exceed `MAX_WIRING` (lowered from 5M to 1M elements). The 13-variable chain now
+  peaks at about 50 MB. The `bayesian_inversion` cross-check is skipped (and listed in the checks) when the
+  roots × observation tensor would be too large (#2).
+
+### Changed
+- `scenarios` on a non-root variable now suggests `interventions` in the validation error.
+
 ## [0.9.1] - 2026-10-10
 
 ### Fixed
@@ -40,5 +78,6 @@ First public release.
 - Examples: weather and equipment maintenance, each in Japanese and English.
 - README in English and Japanese.
 
+[0.10.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.0
 [0.9.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.9.1
 [0.9.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.9.0

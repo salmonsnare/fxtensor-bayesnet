@@ -32,8 +32,65 @@ def render_markdown(res, cfg, lang="ja"):
         for w, mv in r["注目変数の動き"].items():
             L.append(f"  - {w}: TV {mv['全変動距離TV']}, KL {mv['KL(事後||事前)[nat]']}, {t(lang, 'delta')} {mv['差(pt)']}")
         L.append("")
+    L += _md_interventions(res, cfg, lang, outputs)
+    L += _md_effects(res, cfg, lang)
+    L += _md_sensitivity(res, lang)
     L.append(f"{t(lang, 'checks')}: {json.dumps(res['検算'], ensure_ascii=False)}")
     return "\n".join(L) + "\n"
+
+
+def _pt(x, lang):
+    return t(lang, "na") if x is None else f"{x * 100:+.1f}pt"
+
+
+def _pct(x, lang):
+    return t(lang, "na") if x is None else f"{x * 100:.1f}%"
+
+
+def _md_interventions(res, cfg, lang, outputs):
+    if not res.get("介入"):
+        return []
+    V = cfg["variables"]
+    L = [t(lang, "interventions_header"), ""]
+    for v in outputs:
+        labs = V[v]["labels"]
+        L += [f"### {v}（{V[v].get('name', v)}）" if lang == "ja" else f"### {v} ({V[v].get('name', v)})",
+              f"| {t(lang, 'intervention')} | " + " | ".join(labs) + " |", "|---|" + "---|" * len(labs)]
+        base = res["シナリオ"]["基本"]["周辺"].get(v)
+        if base:
+            L.append(f"| {scenario_name(lang, '基本')} | " + " | ".join(f"{base[lab]*100:.1f}%" for lab in labs) + " |")
+        for name, r in res["介入"].items():
+            L.append(f"| {name} | " + " | ".join(f"{r['周辺'][v][lab]*100:.1f}%" for lab in labs) + " |")
+        L.append("")
+    return L
+
+
+def _md_effects(res, cfg, lang):
+    if not res.get("因果効果"):
+        return []
+    L = [t(lang, "effects_header"), ""]
+    for key, e in res["因果効果"].items():
+        x, y = e["処置"], f"{e['結果']}={e['結果のラベル']}"
+        L += [f"### {key}", f"| {t(lang, 'level')} | {t(lang, 'observed_col', x=x, y=y)} | {t(lang, 'do_col', x=x, y=y)} |",
+              "|---|---|---|"]
+        for lev, p in e["P(結果|do(処置))"].items():
+            L.append(f"| {lev} | {_pct(e['P(結果|処置)(観測)'][lev], lang)} | {_pct(p, lang)} |")
+        L += ["", "- " + t(lang, "effect_line", t=e["処置群"], c=e["対照群"], od=_pt(e["観測上の差"], lang),
+                             ace=_pt(e["ACE"], lang), gap=_pt(e["交絡による差(観測上の差−ACE)"], lang)), ""]
+    return L
+
+
+def _md_sensitivity(res, lang):
+    L = []
+    for key, s in (res.get("感度分析") or {}).items():
+        L += [t(lang, "sens_header", y=key, p=s["基準のP"] * 100, d=s["変化量delta"], n=s["パラメータ数"], k=len(s["上位"])),
+              "", t(lang, "sens_cols"), "|---|---|---|---|---|"]
+        for r in s["上位"]:
+            name = r["パラメータ"].replace("|", "\\|")        # 表の区切りと区別する
+            L.append(f"| {name} | {r['基準値']:.3g} → {r['下げた値']:.3g} / {r['上げた値']:.3g} | "
+                     f"{r['P(下げたとき)']*100:.1f}% | {r['P(上げたとき)']*100:.1f}% | {r['幅(pt)']:.2f} |")
+        L.append("")
+    return L
 
 
 def render_mermaid(cfg):
