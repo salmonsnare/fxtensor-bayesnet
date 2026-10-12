@@ -7,7 +7,14 @@ import numpy as np
 from fxtensor_salmon import FXTensor
 
 from . import network
-from .causal import do_config, do_vector, effect_spec, sensitivity, sensitivity_specs
+from .causal import (
+    do_config,
+    do_vector,
+    effect_spec,
+    sensitivity,
+    sensitivity_specs,
+    strata,
+)
 from .config import config_hash
 from .network import Net, self_test_graph_extend, wiring, wiring_size
 
@@ -304,7 +311,8 @@ def run(cfg, max_joint=MAX_JOINT):
             t_, c_ = e["treated"], e["control"]
             ace = p_do[t_] - p_do[c_]
             od = None if p_obs[t_] is None or p_obs[c_] is None else p_obs[t_] - p_obs[c_]
-            res["因果効果"][f"{X} → {Y}={y}"] = {
+            key = f"{X} → {Y}={y}"
+            entry = {
                 "処置": X, "結果": Y, "結果のラベル": y, "処置群": t_, "対照群": c_,
                 "P(結果|do(処置))": {x: _r(p, 4) for x, p in p_do.items()},
                 "P(結果|処置)(観測)": {x: None if p is None else _r(p, 4) for x, p in p_obs.items()},
@@ -312,6 +320,18 @@ def run(cfg, max_joint=MAX_JOINT):
                 "観測上の差": None if od is None else _r(od, 4),
                 "交絡による差(観測上の差−ACE)": None if od is None else _r(od - ace, 4),
             }
+            zero = [x for x, p in p_obs.items() if p is None]
+            if zero:   # P(X=x)=0 の水準では P(Y | X=x) は未定義（0 ではない）
+                entry["観測確率0の水準"] = zero
+                warnings.warn(f"因果効果「{key}」: 処置 {X} の水準 {', '.join(zero)} は観測上の確率が 0 のため、"
+                              f"P({Y} | {X}=水準)（観測）は未定義です（介入側の値と ACE は定義されます）",
+                              UserWarning, stacklevel=2)
+            if e["given_do"]:
+                entry["層別ACE(given_do)"] = _stratified_ace(e, net, lambda x, z, X=X, Y=Y, yi=yi: float(
+                    do_marginals({X: x, **z}, [Y])[Y][yi]))
+            if e["given"]:
+                entry["条件付きACE(given)"] = _conditional_ace(e, net, cfg, base_pri, yi, upd)
+            res["因果効果"][key] = entry
     specs = sensitivity_specs(cfg)
     if specs:
         res["感度分析"] = {}
@@ -333,3 +353,59 @@ def run(cfg, max_joint=MAX_JOINT):
     assert checks["einsum(条件付け)との最大差"] < 1e-9 and checks["bayesian_inversionとconditionalizationの最大差"] < 1e-9
     assert checks.get("介入:切断因子分解との最大差", 0.0) < 1e-12
     return res
+
+
+def _ace_diff(a):
+    """層の ACE（丸め前）のリストから、最後の層 − 最初の層（効果修飾の大きさ）。層が 1 つ、または未定義なら None。"""
+    return None if len(a) < 2 or a[0] is None or a[-1] is None else _r(a[-1] - a[0], 4)
+
+
+def _stratified_ace(e, net, p_do_fn):
+    """given_do：各層 z で Z も介入で固定した P(Y=y | do(X=x), do(Z=z)) と ACE(z)。"""
+    X, t_, c_ = e["treatment"], e["treated"], e["control"]
+    layers, aces = {}, []
+    for name, z in strata(e["given_do"]):
+        p = {x: p_do_fn(x, z) for x in net.labels[X]}
+        aces.append(p[t_] - p[c_])
+        layers[name] = {"条件の値": dict(z), "P(結果|do(処置),do(層))": {x: _r(v, 4) for x, v in p.items()},
+                        "ACE": _r(p[t_] - p[c_], 4)}
+    return {"条件": list(e["given_do"]), "層": layers, "層間のACEの差(最後−最初)": _ace_diff(aces)}
+
+
+def _conditional_ace(e, net, cfg, base_pri, yi, upd):
+    """given：介入後のネット（X をグラフ手術で固定）の中で Z=z を観測して条件付けた P(Y=y | do(X=x), Z=z) と
+    条件付き ACE(z)。P(Z=z | do(X=x)) = 0 の層は未定義（None）。派生設定のネットでも計算して照合する。"""
+    X, Y, t_, c_ = e["treatment"], e["outcome"], e["treated"], e["control"]
+    sts = strata(e["given"])
+    pz, py = {n: {} for n, _ in sts}, {n: {} for n, _ in sts}
+    for x in net.labels[X]:
+        dvec = {X: do_vector(net.labels[X], x)}
+        dcfg = do_config(cfg, {X: x})
+        dnet = Net(dcfg)
+        dpri = {q: dcfg["priors"][q]["p"] for q in dnet.roots}
+        for name, z in sts:
+            lik = evidence_vectors(net, z)
+            zz = float(net.contract(base_pri, [], evidence=lik, do=dvec))
+            ref = float(dnet.contract(dpri, [], evidence=evidence_vectors(dnet, z)))
+            upd("介入:切断因子分解との最大差", abs(zz - ref))
+            pz[name][x] = zz
+            if zz > 0:
+                num = float(net.contract(base_pri, [Y], evidence=lik, do=dvec)[yi])
+                ref = float(dnet.contract(dpri, [Y], evidence=evidence_vectors(dnet, z))[yi])
+                upd("介入:切断因子分解との最大差", abs(num - ref))
+                py[name][x] = num / zz
+            else:
+                py[name][x] = None
+    layers, aces = {}, []
+    for name, z in sts:
+        p = py[name]
+        ace = None if p[t_] is None or p[c_] is None else p[t_] - p[c_]
+        aces.append(ace)
+        layers[name] = {"条件の値": dict(z), "P(層|do(処置))": {x: _r(v, 4) for x, v in pz[name].items()},
+                        "P(結果|do(処置),層)": {x: None if v is None else _r(v, 4) for x, v in p.items()},
+                        "ACE": None if ace is None else _r(ace, 4)}
+    und = [n for n, layer in layers.items() if layer["ACE"] is None]
+    if und:
+        warnings.warn(f"条件付き ACE（{X} → {Y}）: 層 {'; '.join(und)} は do({X}) の下で確率 0 の水準があるため未定義です",
+                      UserWarning, stacklevel=3)
+    return {"条件": list(e["given"]), "層": layers, "層間のACEの差(最後−最初)": _ace_diff(aces)}

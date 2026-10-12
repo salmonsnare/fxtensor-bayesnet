@@ -32,13 +32,36 @@ def do_config(cfg, do):
     return c
 
 
+def given_levels(labels, spec):
+    """given_do / given の 1 変数分（None＝全ラベル、ラベル文字列、ラベルのリスト）をラベルのリストにする。"""
+    if spec is None:
+        return list(labels)
+    if isinstance(spec, str):
+        return [spec]
+    return list(spec)
+
+
+def strata(given):
+    """{変数: [ラベル, ...]} から層（ラベルの組み合わせ）のリスト [(層の名前, {変数: ラベル}), ...] を作る。
+    層の名前は「Z=z」（複数の変数なら「Z=z, W=w」）。"""
+    vs = list(given)
+    out = []
+    for combo in product(*[given[v] for v in vs]):
+        d = dict(zip(vs, combo))
+        out.append((", ".join(f"{v}={lab}" for v, lab in d.items()), d))
+    return out
+
+
 def effect_spec(cfg, e):
-    """effects の 1 項目に既定値を補う（outcome_label=最後のラベル、treated=最後、control=最初）。"""
+    """effects の 1 項目に既定値を補う（outcome_label=最後のラベル、treated=最後、control=最初）。
+    given_do / given（層別・条件付き ACE）は {変数: [ラベル, ...]} に正規化し、指定がなければ空の辞書。"""
     V = cfg["variables"]
     tl, ol = V[e["treatment"]]["labels"], V[e["outcome"]]["labels"]
     return {"treatment": e["treatment"], "outcome": e["outcome"],
             "outcome_label": e.get("outcome_label", ol[-1]),
-            "treated": e.get("treated", tl[-1]), "control": e.get("control", tl[0])}
+            "treated": e.get("treated", tl[-1]), "control": e.get("control", tl[0]),
+            "given_do": {v: given_levels(V[v]["labels"], s) for v, s in (e.get("given_do") or {}).items()},
+            "given": {v: given_levels(V[v]["labels"], s) for v, s in (e.get("given") or {}).items()}}
 
 
 def sensitivity_specs(cfg):

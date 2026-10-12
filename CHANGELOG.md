@@ -3,6 +3,26 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.0] - 2026-10-12
+
+### Added
+- `effects[].given_do`: stratified ACE. For each stratum z of one or more other variables (also fixed by intervention),
+  P(outcome | do(X=x), do(Z=z)) for every level and ACE(z), plus the difference between the last and the first
+  stratum (effect modification). Stored under `層別ACE(given_do)` (`stratified_ace_given_do`) (#22).
+- `effects[].given`: conditional ACE. X is fixed by intervention and Z is observed in the intervened model,
+  P(outcome | do(X=x), Z=z); a stratum with probability 0 under do(X=x) is `null` with a warning. Stored under
+  `条件付きACE(given)` (`conditional_ace_given`) and cross-checked against the graph-surgery network (#22).
+- Values of `given_do` / `given` may be a list of labels, one label or `null` (all labels); several variables give
+  the combinations of their labels. `--check` reports unknown variables or labels, the treatment or outcome used as
+  a given variable and a variable listed in both keys. Markdown gets a table per stratification and `effects.png` a
+  panel of stratum ACEs. Effects without these keys give exactly the same output as before (#22).
+
+### Fixed
+- `effects.png` drew the observed bar of a treatment level with probability 0 as a bar of height 0 labelled "0",
+  although P(outcome | X=x) is undefined there (`null` in `results.json`). No bar is drawn now; the level is marked
+  "undefined (P=0)" with a note in the panel. `run()` issues a `UserWarning` and the effect lists such levels in
+  `観測確率0の水準` (`zero_probability_levels`); Markdown adds a note next to the `—` (#21).
+
 ## [0.10.1] - 2026-10-12
 
 ### Fixed
@@ -95,6 +115,7 @@ First public release.
 - Examples: weather and equipment maintenance, each in Japanese and English.
 - README in English and Japanese.
 
+[0.11.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.0
 [0.10.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.1
 [0.10.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.0
 [0.9.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.9.1

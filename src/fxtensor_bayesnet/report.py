@@ -79,7 +79,31 @@ def _md_effects(res, cfg, lang):
         for lev, p in e["P(結果|do(処置))"].items():
             L.append(f"| {lev} | {_pct(e['P(結果|処置)(観測)'][lev], lang)} | {_pct(p, lang)} |")
         L += ["", "- " + t(lang, "effect_line", t=e["処置群"], c=e["対照群"], od=_pt(e["観測上の差"], lang),
-                             ace=_pt(e["ACE"], lang), gap=_pt(e["交絡による差(観測上の差−ACE)"], lang)), ""]
+                             ace=_pt(e["ACE"], lang), gap=_pt(e["交絡による差(観測上の差−ACE)"], lang))]
+        if e.get("観測確率0の水準"):
+            L.append("- " + t(lang, "zero_level_md", levs=", ".join(e["観測確率0の水準"])))
+        L.append("")
+        for sk, hk, pk, ck in (("層別ACE(given_do)", "strat_do_header", "P(結果|do(処置),do(層))", "strat_do_col"),
+                               ("条件付きACE(given)", "strat_obs_header", "P(結果|do(処置),層)", "strat_obs_col")):
+            s = e.get(sk)
+            if not s:
+                continue
+            levs = list(e["P(結果|do(処置))"])
+            L += [t(lang, hk, z=", ".join(s["条件"])), "",
+                  f"| {t(lang, 'stratum')} | " + " | ".join(t(lang, ck, x=x, y=y, lev=lev) for lev in levs) + " | ACE |",
+                  "|---|" + "---|" * (len(levs) + 1)]
+            for name, layer in s["層"].items():
+                L.append(f"| {name} | " + " | ".join(_pct(layer[pk][lev], lang) for lev in levs)
+                         + f" | {_pt(layer['ACE'], lang)} |")
+            L.append("")
+            names = list(s["層"])
+            if len(names) >= 2:
+                L.append("- " + t(lang, "strat_diff", last=names[-1], first=names[0],
+                                  d=_pt(s["層間のACEの差(最後−最初)"], lang)))
+            if any(layer["ACE"] is None for layer in s["層"].values()):
+                L.append("- " + t(lang, "strat_undefined", x=x))
+            if L[-1] != "":
+                L.append("")
     return L
 
 
