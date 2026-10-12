@@ -278,16 +278,20 @@ def _wrap_text(s, fits):
     return "\n".join(lines)
 
 
-def _grouped_bars(ax, labels, series, colors, annotate=True, axes_width_in=None):
+def _grouped_bars(ax, labels, series, colors, annotate=True, axes_width_in=None, none_text="—"):
+    """None の値（未定義）は棒を描かず、その位置に none_text を書く（0 の棒と区別するため）。"""
     import numpy as np
     k = len(series)
     width = 0.8 / k
     x = np.arange(len(labels))
     for i, (name, vals) in enumerate(series):
         xs = x - 0.4 + width * (i + 0.5)
-        bars = ax.bar(xs, [v * 100 for v in vals], width * 0.92, label=name, color=colors[i % len(colors)])
-        if annotate:
-            for b, v in zip(bars, vals):
+        bars = ax.bar(xs, [np.nan if v is None else v * 100 for v in vals], width * 0.92, label=name,
+                      color=colors[i % len(colors)])
+        for b, xc, v in zip(bars, xs, vals):
+            if v is None:
+                ax.text(xc, 1.0, none_text, ha="center", va="bottom", fontsize=6.5, color="#777777")
+            elif annotate:
                 ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 1.0, f"{v*100:.0f}",
                         ha="center", va="bottom", fontsize=7, color="#333333")
     ax.set_xticks(x)
@@ -447,28 +451,82 @@ def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label=None, new_label=No
 # ---------------------------------------------------------------------------
 # (5) 観測と介入の比較
 # ---------------------------------------------------------------------------
+def _effect_panels(effs):
+    """effects.png のパネル：因果効果ごとに観測と介入の比較、続けて層別 ACE（given_do）と条件付き ACE（given）。"""
+    out = []
+    for key, e in effs.items():
+        out.append(("main", key, e, None))
+        for sk in ("層別ACE(given_do)", "条件付きACE(given)"):
+            if e.get(sk):
+                out.append((sk, key, e, e[sk]))
+    return out
+
+
+def _plot_strata(ax, e, s, kind, V, lang):
+    import numpy as np
+    names = list(s["層"])
+    aces = [s["層"][n]["ACE"] for n in names]
+    x = np.arange(len(names))
+    vals = [np.nan if a is None else a * 100 for a in aces]
+    color = POST_COLOR if kind == "層別ACE(given_do)" else "#7a5fb0"
+    bars = ax.bar(x, vals, 0.6, color=color)
+    finite = [v for v in vals if not np.isnan(v)] + [e["ACE"] * 100, 0.0]
+    lim = max(abs(min(finite)), abs(max(finite)), 1.0) * 1.3
+    for b, xc, a in zip(bars, x, aces):
+        if a is None:
+            ax.text(xc, 0, t(lang, "zero_level_bar"), ha="center", va="bottom", fontsize=6.5, color="#777777")
+        else:
+            ax.text(xc, a * 100 + (lim * 0.03 if a >= 0 else -lim * 0.03), f"{a*100:+.1f}",
+                    ha="center", va="bottom" if a >= 0 else "top", fontsize=7.5, color="#333333")
+    ax.axhline(0, color="#333333", lw=0.8)
+    ax.axhline(e["ACE"] * 100, color="#555555", lw=0.9, ls="--", label=None)
+    ax.text(0.99, 0.02, "- - " + t(lang, "overall_ace", ace=f"{e['ACE'] * 100:+.1f}"), transform=ax.transAxes,
+            ha="right", va="bottom", fontsize=7, color="#555555")
+    ax.set_ylim(-lim, lim)
+    ax.set_xticks(x)
+    ax.set_xticklabels([_wrap_label(n, 0.92 * 3.4 / len(names)) for n in names], fontsize=8.5)
+    ax.set_ylabel("ACE (pt)", fontsize=9)
+    ax.grid(axis="y", alpha=0.3)
+    ax.set_axisbelow(True)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    X, Y = e["処置"], e["結果"]
+    z = ", ".join(s["条件"])
+    head = t(lang, "strat_do_title" if kind == "層別ACE(given_do)" else "strat_obs_title", z=z)
+    ax.set_title(f"{V[X].get('name', X)} → {V[Y].get('name', Y)}={e['結果のラベル']}\n{head}", fontsize=9.5)
+
+
 def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
     effs = res.get("因果効果")
     if not effs:
         return None
     plt = _mpl()
     V = cfg["variables"]
-    nr, nc = _grid(len(effs), ncols)
+    panels = _effect_panels(effs)
+    nr, nc = _grid(len(panels), ncols)
     fig, axes = plt.subplots(nr, nc, figsize=(4.2 * nc, 3.4 * nr), squeeze=False)
-    for ax, (key, e) in zip(axes.flat, effs.items()):
+    legend_ax = None
+    for ax, (kind, key, e, s) in zip(axes.flat, panels):
+        if kind != "main":
+            _plot_strata(ax, e, s, kind, V, lang)
+            continue
+        legend_ax = legend_ax or ax
         levs = list(e["P(結果|do(処置))"])
-        obs = [e["P(結果|処置)(観測)"][lev] or 0.0 for lev in levs]
+        obs = [e["P(結果|処置)(観測)"][lev] for lev in levs]     # None（観測確率 0 の水準）は棒を描かない
         do = [e["P(結果|do(処置))"][lev] for lev in levs]
         _grouped_bars(ax, levs, [(t(lang, "observed"), obs), (t(lang, "intervened"), do)], [PRIOR_COLOR, POST_COLOR],
-                      axes_width_in=3.4)
+                      axes_width_in=3.4, none_text=t(lang, "zero_level_bar"))
+        if any(v is None for v in obs):
+            ax.text(0.99, 0.99, t(lang, "zero_level_note"), transform=ax.transAxes, ha="right", va="top",
+                    fontsize=7, color="#777777")
         x, y = e["処置"], e["結果"]
         od = "—" if e["観測上の差"] is None else f"{e['観測上の差'] * 100:+.1f}"
         ax.set_title(f"{V[x].get('name', x)} → {V[y].get('name', y)}={e['結果のラベル']}\n"
                      + t(lang, "effect_annot", od=od, ace=f"{e['ACE'] * 100:+.1f}"), fontsize=9.5)
         ax.set_xlabel(f"{x}", fontsize=9)
-    for ax in list(axes.flat)[len(effs):]:
+    for ax in list(axes.flat)[len(panels):]:
         ax.axis("off")
-    h, lab = axes.flat[0].get_legend_handles_labels()
+    h, lab = legend_ax.get_legend_handles_labels()
     fig.legend(h, lab, loc="lower center", ncol=2, frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.01))
     fig.suptitle(t(lang, "effects_title"), fontsize=12)
     fig.tight_layout(rect=(0, 0.06, 1, 0.95))

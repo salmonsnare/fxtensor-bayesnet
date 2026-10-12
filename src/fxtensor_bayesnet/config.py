@@ -166,6 +166,34 @@ def validate(cfg):
                 errs.append(f"effects[{i}].{k}: {var} にラベル {e[k]} がない")
         if e.get("treated", labels_of(x)[-1]) == e.get("control", labels_of(x)[0]):
             errs.append(f"effects[{i}]: treated と control が同じラベル")
+        for gk in ("given_do", "given"):
+            g = e.get(gk)
+            if g is None:
+                continue
+            if not isinstance(g, dict) or not g:
+                errs.append(f"effects[{i}].{gk}: {{変数: [ラベル, ...]}} の形の空でない辞書が必要")
+                continue
+            for z, levs in g.items():
+                if z not in V:
+                    errs.append(f"effects[{i}].{gk}: {z} が未定義")
+                    continue
+                if z in (x, y):
+                    errs.append(f"effects[{i}].{gk}: {z} は treatment / outcome と別の変数が必要")
+                if levs is None:
+                    continue
+                levs = [levs] if isinstance(levs, str) else levs
+                if not isinstance(levs, list) or not levs:
+                    errs.append(f"effects[{i}].{gk}.{z}: ラベル、ラベルのリスト、または null（全ラベル）が必要")
+                    continue
+                for lab in levs:
+                    if lab not in labels_of(z):
+                        errs.append(f"effects[{i}].{gk}.{z}: ラベル {lab} がない")
+                if len(set(map(str, levs))) != len(levs):
+                    errs.append(f"effects[{i}].{gk}.{z}: ラベルが重複している")
+        both = set(e.get("given_do") or {}) & set(e.get("given") or {}) if all(
+            isinstance(e.get(k) or {}, dict) for k in ("given_do", "given")) else set()
+        if both:
+            errs.append(f"effects[{i}]: {', '.join(sorted(both))} が given_do と given の両方にある")
     sens = cfg.get("sensitivity")
     for i, s_ in enumerate(sens if isinstance(sens, list) else [sens] if sens else []):
         if not isinstance(s_, dict) or s_.get("target") not in V:

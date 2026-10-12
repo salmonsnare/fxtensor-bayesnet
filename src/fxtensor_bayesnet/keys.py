@@ -28,6 +28,16 @@ _EFFECT = {
     "処置": "treatment", "結果": "outcome", "結果のラベル": "outcome_label", "処置群": "treated", "対照群": "control",
     "P(結果|do(処置))": "p_outcome_do", "P(結果|処置)(観測)": "p_outcome_observed", "ACE": "ace",
     "観測上の差": "observed_difference", "交絡による差(観測上の差−ACE)": "confounding_gap",
+    "観測確率0の水準": ("zero_probability_levels", None),
+    "層別ACE(given_do)": ("stratified_ace_given_do", {
+        "条件": ("given", None), "層": ("strata", {"*": (None, {
+            "条件の値": ("given_values", None), "P(結果|do(処置),do(層))": "p_outcome_do_given_do", "ACE": "ace"})}),
+        "層間のACEの差(最後−最初)": "ace_difference_last_minus_first"}),
+    "条件付きACE(given)": ("conditional_ace_given", {
+        "条件": ("given", None), "層": ("strata", {"*": (None, {
+            "条件の値": ("given_values", None), "P(層|do(処置))": "p_stratum_do",
+            "P(結果|do(処置),層)": "p_outcome_do_given", "ACE": "ace"})}),
+        "層間のACEの差(最後−最初)": "ace_difference_last_minus_first"}),
 }
 _SENS_ROW = {"パラメータ": "parameter", "基準値": "base_value", "下げた値": "low_value", "上げた値": "high_value",
              "P(下げたとき)": "p_low", "P(上げたとき)": "p_high", "幅(pt)": "swing_pt"}
