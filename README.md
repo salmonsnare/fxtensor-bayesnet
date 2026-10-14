@@ -46,7 +46,7 @@ pytest
 Example configs live in `examples/` (they are not part of the PyPI package, so fetch them from the repository).
 
 ```bash
-curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/examples/weather/config.en.json
+curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/examples/weather/config.en.json
 fxtensor-bayesnet --check                            # defaults to ./config.json
 fxtensor-bayesnet --no-write --md --lang en          # Markdown to stdout
 fxtensor-bayesnet --no-write --plot --lang en --out-dir out/   # figures only, into out/
@@ -152,6 +152,8 @@ Excerpt of `--md --lang en` for these additions:
 ```
 
 Interventional results are cross-checked against a direct truncated-factorisation einsum on the original network (`介入:切断因子分解との最大差` in the checks).
+
+A max-error entry in the checks is a number only when that comparison was actually made; otherwise it is `null` (not checked) and Markdown lists it as "Not checked" (0.11.2). In `ancestral` mode (joint above 2,000,000 elements) no full joint is built, so `einsum(全同時)との最大差` is `null`, and observations with several or soft evidence are not cross-checked: they are listed under `条件付けの検算を省略した観測` (`conditioning_check_skipped`), like `bayesian_inversionの検算を省略した観測` (`inversion_check_skipped`). Without observations the conditioning checks are `null` as well.
 
 ### Stratified and conditional ACE (`given_do` / `given`, 0.11.0)
 
@@ -281,19 +283,19 @@ graph TD
 
 Network structure (`network.png` from `--plot`):
 
-![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_network.png)
+![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/weather_network.png)
 
 Marginals by scenario (`marginals.png`):
 
-![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_marginals.png)
+![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/weather_marginals.png)
 
 Bayesian update, prior vs posterior (`updates.png`). For example, observing heavy rain raises "Low approaching" for the pressure pattern from 25% to 67%:
 
-![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_updates.png)
+![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/weather_updates.png)
 
 Day-over-day change (`diff.png` from `--diff --plot`): the next day, the pressure and humidity priors are revised. Scenarios A and B override the pressure prior (B also humidity), so they change less (B not at all):
 
-![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_diff.png)
+![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/weather_diff.png)
 
 ### Equipment maintenance (`examples/maintenance/config.en.json`)
 
@@ -327,11 +329,11 @@ graph TD
 
 ```
 
-![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/maintenance_network.png)
+![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/maintenance_network.png)
 
-![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/maintenance_marginals.png)
+![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/maintenance_marginals.png)
 
-![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/maintenance_updates.png)
+![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/maintenance_updates.png)
 
 Sample output (maintenance, excerpt of `--md --lang en`):
 
@@ -352,7 +354,7 @@ Sample output (maintenance, excerpt of `--md --lang en`):
 
 Observation vs intervention with `interventions`, `effects`, joint and soft evidence and `sensitivity`; see its [README](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/examples/ecology_host_parasitoid/README.md). **All numbers are illustrative placeholders**; the topic is inspired by Coroller-Chouraki et al. (bioRxiv, https://doi.org/10.64898/2026.10.06.757064), but the values are not estimates from that paper.
 
-![Ecology: observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/ecology_effects.png)
+![Ecology: observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/ecology_effects.png)
 
 ## Result keys
 

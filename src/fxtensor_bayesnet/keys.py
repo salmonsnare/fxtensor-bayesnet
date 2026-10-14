@@ -52,6 +52,7 @@ _CHECKS = {
     "bayesian_inversionとconditionalizationの最大差": "max_err_inversion_vs_conditionalization",
     "介入:切断因子分解との最大差": "max_err_intervention_vs_truncated_factorization",
     "bayesian_inversionの検算を省略した観測": ("inversion_check_skipped", None),
+    "条件付けの検算を省略した観測": ("conditioning_check_skipped", None),
     "備考": "remark",
 }
 SCHEMA = {

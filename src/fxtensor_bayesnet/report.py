@@ -39,6 +39,7 @@ def render_markdown(res, cfg, lang="ja"):
     L += _md_effects(res, cfg, lang)
     L += _md_sensitivity(res, lang)
     L.append(f"{t(lang, 'checks')}: {json.dumps(res['検算'], ensure_ascii=False)}")
+    L += _md_unchecked(res["検算"], lang)
     return "\n".join(L) + "\n"
 
 
@@ -66,6 +67,20 @@ def _md_interventions(res, cfg, lang, outputs):
             L.append(f"| {name} | " + " | ".join(f"{r['周辺'][v][lab]*100:.1f}%" for lab in labs) + " |")
         L.append("")
     return L
+
+
+def _md_unchecked(checks, lang):
+    """未検算の項目（最大差が null）と、検算を省略した観測を明示する（「検算して差 0」と区別するため）。"""
+    from .keys import KEY_MAP
+    L = []
+    none = [k for k, v in checks.items() if k.endswith("最大差") and v is None]
+    if none:
+        names = none if lang == "ja" else [KEY_MAP.get(k, k) for k in none]
+        L.append("- " + t(lang, "not_checked", keys=", ".join(f"`{k}`" for k in names)))
+    for k, kind in (("条件付けの検算を省略した観測", "einsum"), ("bayesian_inversionの検算を省略した観測", "bayesian_inversion")):
+        if checks.get(k):
+            L.append("- " + t(lang, "skipped_obs", kind=kind, obs=", ".join(checks[k])))
+    return [""] + L if L else []
 
 
 def _md_effects(res, cfg, lang):

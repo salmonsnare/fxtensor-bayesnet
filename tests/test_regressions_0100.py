@@ -113,6 +113,6 @@ def test_version_is_consistent():
     from conftest import ROOT
     with open(os.path.join(ROOT, "pyproject.toml"), encoding="utf-8") as f:
         v = re.search(r'^version = "([^"]+)"', f.read(), re.M).group(1)
-    assert v == fxtensor_bayesnet.__version__ == "0.11.1"
+    assert v == fxtensor_bayesnet.__version__ == "0.11.2"
     with open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8") as f:
         assert f"## [{v}]" in f.read()
