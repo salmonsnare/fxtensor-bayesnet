@@ -103,7 +103,7 @@ def test_given_do_matches_four_interventions():
     cfg["interventions"] = {f"{w}|{s}": {"water": w, "weather": s} for w in ("No", "Yes") for s in ("Dry", "Wet")}
     res = run(cfg)
     p = {k: r["周辺"]["harvest"]["Good"] for k, r in res["介入"].items()}
-    st = res["因果効果"]["water → harvest=Good"]["層別ACE(given_do)"]
+    st = res["因果効果"]["water → harvest=Good | do(weather), soil"]["層別ACE(given_do)"]
     assert st["条件"] == ["weather"] and list(st["層"]) == ["weather=Dry", "weather=Wet"]
     for s in ("Dry", "Wet"):
         layer = st["層"][f"weather={s}"]
@@ -118,7 +118,7 @@ def test_given_do_matches_four_interventions():
 
 def test_given_matches_conditioning_in_mutilated_model():
     res = run(GARDEN)
-    st = res["因果効果"]["water → harvest=Good"]["条件付きACE(given)"]
+    st = res["因果効果"]["water → harvest=Good | do(weather), soil"]["条件付きACE(given)"]
     assert list(st["層"]) == ["soil=Poor", "soil=Rich"]
     for s in ("Poor", "Rich"):
         hand = {}
@@ -144,7 +144,7 @@ def test_given_undefined_stratum_is_null():
     cfg["effects"] = [{"treatment": "water", "outcome": "harvest", "given": {"soil": ["Poor", "Rich"]}}]
     with pytest.warns(UserWarning, match="soil=Rich"):
         res = run(cfg)
-    st = res["因果効果"]["water → harvest=Good"]["条件付きACE(given)"]
+    st = res["因果効果"]["water → harvest=Good | soil"]["条件付きACE(given)"]
     assert st["層"]["soil=Rich"]["ACE"] is None and st["層間のACEの差(最後−最初)"] is None
     assert st["層"]["soil=Poor"]["ACE"] is not None
     assert "— " in render_markdown(res, cfg, lang="en")
@@ -153,14 +153,14 @@ def test_given_undefined_stratum_is_null():
 def test_multiple_given_do_variables_make_combined_strata():
     cfg = copy.deepcopy(GARDEN)
     cfg["effects"] = [{"treatment": "water", "outcome": "harvest", "given_do": {"weather": None, "soil": "Rich"}}]
-    st = run(cfg)["因果効果"]["water → harvest=Good"]["層別ACE(given_do)"]
+    st = run(cfg)["因果効果"]["water → harvest=Good | do(weather, soil)"]["層別ACE(given_do)"]
     assert list(st["層"]) == ["weather=Dry, soil=Rich", "weather=Wet, soil=Rich"]
     assert st["層"]["weather=Dry, soil=Rich"]["ACE"] == pytest.approx(0.8 - 0.3)
 
 
 def test_english_keys_and_markdown():
     res = run(GARDEN)
-    en = to_english_keys(res)["effects"]["water → harvest=Good"]
+    en = to_english_keys(res)["effects"]["water → harvest=Good | do(weather), soil"]
     sd = en["stratified_ace_given_do"]
     assert sd["given"] == ["weather"] and sd["strata"]["weather=Dry"]["given_values"] == {"weather": "Dry"}
     assert set(sd["strata"]["weather=Dry"]) == {"given_values", "p_outcome_do_given_do", "ace"}

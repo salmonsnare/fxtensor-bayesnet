@@ -29,6 +29,7 @@ _EFFECT = {
     "P(結果|do(処置))": "p_outcome_do", "P(結果|処置)(観測)": "p_outcome_observed", "ACE": "ace",
     "観測上の差": "observed_difference", "交絡による差(観測上の差−ACE)": "confounding_gap",
     "観測確率0の水準": ("zero_probability_levels", None),
+    "名前": "name",
     "層別ACE(given_do)": ("stratified_ace_given_do", {
         "条件": ("given", None), "層": ("strata", {"*": (None, {
             "条件の値": ("given_values", None), "P(結果|do(処置),do(層))": "p_outcome_do_given_do", "ACE": "ace"})}),

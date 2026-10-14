@@ -3,6 +3,22 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.1] - 2026-10-15
+
+### Fixed
+- Two `effects` items with the same (treatment, outcome, outcome_label) were stored under the same key `X → Y=y`, so
+  the first one (with its `given_do` / `given` results) was silently overwritten and `--check` passed. The key now
+  includes the stratification when there is one (`X → Y=y | do(Z)`, `X → Y=y | W`, `X → Y=y | do(Z), W`); effects
+  without `given_do` / `given` keep `X → Y=y`. Keys that still collide are a config error in `--check`, and `run()`
+  raises `ConfigError` instead of overwriting (#24).
+
+### Added
+- `effects[].name`: optional result key for an effect (also stored as `名前` / `name`). `effects.png` shows the key in
+  the panel title when it differs from `X → Y=y`, so panels of the same effect can be told apart (#24).
+
+### Changed
+- Result keys of effects that use `given_do` / `given` (introduced in 0.11.0) gain the `| …` suffix described above.
+
 ## [0.11.0] - 2026-10-12
 
 ### Added
@@ -115,6 +131,7 @@ First public release.
 - Examples: weather and equipment maintenance, each in Japanese and English.
 - README in English and Japanese.
 
+[0.11.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.1
 [0.11.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.0
 [0.10.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.1
 [0.10.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.0

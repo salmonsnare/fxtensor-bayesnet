@@ -46,7 +46,7 @@ pytest
 例題の設定は `examples/` にあります（PyPI のパッケージには含まれないので、リポジトリから取得してください）。
 
 ```bash
-curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/examples/weather/config.json
+curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/examples/weather/config.json
 fxtensor-bayesnet --check                       # 既定はカレントディレクトリの config.json
 fxtensor-bayesnet --no-write --md               # Markdown を標準出力へ
 fxtensor-bayesnet --no-write --plot --out-dir out/   # 図だけ out/ に
@@ -99,7 +99,7 @@ fxtensor-bayesnet --no-write --plot --out-dir out/   # 図だけ out/ に
 | `scenarios` | | シナリオ名 → `{根の変数: 差し替える事前分布}`。「基本」は自動で入る |
 | `observations` | | `{"var", "label", "focus"}`。`var=label` を観測したときの事後を計算。`focus` の変数は事前→事後の動き（差・全変動距離 TV・KL）と動きの大きさ順を出す（省略時は根すべて）。`var`/`label` の代わりに `{"evidence": {...}, "name": 任意}` と書くと、複数の観測を同時に条件付けでき、ソフト証拠も書ける（下記） |
 | `interventions` | | 介入名 → `{変数: ラベル or [分布]}`。**任意の変数**への do 演算（その変数の核を差し替えるグラフ手術）。`outputs` の周辺分布を出す |
-| `effects` | | `{"treatment", "outcome", "outcome_label"?, "treated"?, "control"?}` のリスト。各水準の P(outcome \| do(X=x)) と P(outcome \| X=x)、ACE（treated − control）、観測上の差、その差（交絡）を出す。既定は outcome の最後のラベル、treated＝最後のラベル、control＝最初のラベル。`given_do` / `given` で層別・条件付き ACE も出せる（後述） |
+| `effects` | | `{"treatment", "outcome", "outcome_label"?, "treated"?, "control"?}` のリスト。各水準の P(outcome \| do(X=x)) と P(outcome \| X=x)、ACE（treated − control）、観測上の差、その差（交絡）を出す。既定は outcome の最後のラベル、treated＝最後のラベル、control＝最初のラベル。`given_do` / `given` で層別・条件付き ACE も出せる。任意の `name` は結果のキーになる（後述） |
 | `sensitivity` | | `{"target", "label"?, "delta"?（0.05）, "top"?（10）}` またはそのリスト。P(target=label) の、各事前分布・CPT の値への一変数ずつの感度 |
 | `outputs` | | 結果表に出す変数（省略時は根以外すべて） |
 
@@ -166,6 +166,7 @@ X の効果が別の変数 Z によって変わるか（効果修飾）を調べ
 - **`given_do`**：`{Z: [ラベル]}`。Z も介入で固定します。層 z ごとに、各水準 x の P(Y=y \| do(X=x), do(Z=z)) と ACE(z) = P(y \| do(treated), do(z)) − P(y \| do(control), do(z)) を出します。
 - **`given`**：`{Z: [ラベル]}`。条件付き ACE です。X を介入で固定したモデルの中で Z を観測して条件付けた P(Y=y \| do(X=x), Z=z) を使います。do(X=x) の下で確率 0 の層は未定義（`null`、表示は `—`）とし、警告を出します。
 - 値はラベルのリスト、ラベル 1 つ、または `null`（全ラベル）。複数の変数を書くと、ラベルの組み合わせが層になります（例 `wear=大, load=低`）。Z は treatment・outcome と別の変数で、同じ変数を両方のキーには書けません。
+- **結果のキー（0.11.1）**：`name` があればそれをキーにします（`名前` / `name` としても残ります）。なければ `X → Y=y` に層の指定を続けます。`given_do` なら `X → Y=y | do(Z)`、`given` なら `X → Y=y | W`、両方なら `X → Y=y | do(Z), W`。`given_do` / `given` のない effects は従来どおり `X → Y=y` です。これで同じ (treatment, outcome, outcome_label) を層の指定を変えて何件でも書けます。それでもキーが重なる場合（同じ `given_do` の変数でラベルだけ違う、など）は、`--check` が設定エラーにし、`run()` も最後の 1 件だけを黙って残さずに `ConfigError` を出します。`name` を付けて区別してください。
 - 層ごとの値は因果効果の `層別ACE(given_do)` / `条件付きACE(given)`（`stratified_ace_given_do` / `conditional_ace_given`）に入り、最後の層と最初の層の ACE の差（`層間のACEの差(最後−最初)`、`ace_difference_last_minus_first`）も出します。Markdown には層別の表、`effects.png` には層ごとの ACE の棒グラフ（破線は全体の ACE）が加わります。これらのキーがない effects の出力は変わりません。
 
 保守の例では、do(temp) の ACE は摩耗を「小」に固定すると +1.5pt、「大」に固定すると +20.0pt です。
@@ -351,7 +352,7 @@ graph TD
 
 `interventions`・`effects`・同時／ソフト証拠・`sensitivity` を使った「観測と介入の違い」の例です（英語。[README](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/examples/ecology_host_parasitoid/README.md)）。**数値はすべて例示用の仮の値**です。題材は Coroller-Chouraki et al.（bioRxiv、https://doi.org/10.64898/2026.10.06.757064）を参考にしましたが、値はその論文からの推定ではありません。
 
-![生態学の例：観測と介入](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/ecology_effects.png)
+![生態学の例：観測と介入](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/ecology_effects.png)
 
 ## 結果のキー
 
