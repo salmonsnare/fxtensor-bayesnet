@@ -462,7 +462,7 @@ def _effect_panels(effs):
     return out
 
 
-def _plot_strata(ax, e, s, kind, V, lang):
+def _plot_strata(ax, key, e, s, kind, V, lang):
     import numpy as np
     names = list(s["層"])
     aces = [s["層"][n]["ACE"] for n in names]
@@ -493,7 +493,8 @@ def _plot_strata(ax, e, s, kind, V, lang):
     X, Y = e["処置"], e["結果"]
     z = ", ".join(s["条件"])
     head = t(lang, "strat_do_title" if kind == "層別ACE(given_do)" else "strat_obs_title", z=z)
-    ax.set_title(f"{V[X].get('name', X)} → {V[Y].get('name', Y)}={e['結果のラベル']}\n{head}", fontsize=9.5)
+    top = key if e.get("名前") else f"{V[X].get('name', X)} → {V[Y].get('name', Y)}={e['結果のラベル']}"
+    ax.set_title(f"{top}\n{head}", fontsize=9.5)
 
 
 def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
@@ -508,7 +509,7 @@ def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
     legend_ax = None
     for ax, (kind, key, e, s) in zip(axes.flat, panels):
         if kind != "main":
-            _plot_strata(ax, e, s, kind, V, lang)
+            _plot_strata(ax, key, e, s, kind, V, lang)
             continue
         legend_ax = legend_ax or ax
         levs = list(e["P(結果|do(処置))"])
@@ -521,7 +522,10 @@ def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
                     fontsize=7, color="#777777")
         x, y = e["処置"], e["結果"]
         od = "—" if e["観測上の差"] is None else f"{e['観測上の差'] * 100:+.1f}"
-        ax.set_title(f"{V[x].get('name', x)} → {V[y].get('name', y)}={e['結果のラベル']}\n"
+        head = f"{V[x].get('name', x)} → {V[y].get('name', y)}={e['結果のラベル']}"
+        if key != f"{x} → {y}={e['結果のラベル']}":     # name や層の指定があれば、どの項目か分かるようにキーも出す
+            head = f"{key}\n{head}"
+        ax.set_title(f"{head}\n"
                      + t(lang, "effect_annot", od=od, ace=f"{e['ACE'] * 100:+.1f}"), fontsize=9.5)
         ax.set_xlabel(f"{x}", fontsize=9)
     for ax in list(axes.flat)[len(panels):]:

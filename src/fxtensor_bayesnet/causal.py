@@ -57,11 +57,43 @@ def effect_spec(cfg, e):
     given_do / given（層別・条件付き ACE）は {変数: [ラベル, ...]} に正規化し、指定がなければ空の辞書。"""
     V = cfg["variables"]
     tl, ol = V[e["treatment"]]["labels"], V[e["outcome"]]["labels"]
-    return {"treatment": e["treatment"], "outcome": e["outcome"],
+    return {"name": e.get("name"), "treatment": e["treatment"], "outcome": e["outcome"],
             "outcome_label": e.get("outcome_label", ol[-1]),
             "treated": e.get("treated", tl[-1]), "control": e.get("control", tl[0]),
             "given_do": {v: given_levels(V[v]["labels"], s) for v, s in (e.get("given_do") or {}).items()},
             "given": {v: given_levels(V[v]["labels"], s) for v, s in (e.get("given") or {}).items()}}
+
+
+def effect_key(variables, e):
+    """effects の 1 項目の結果のキー。name があればそれ。なければ「X → Y=y」で、given_do / given があれば
+    層の指定を足す（例「X → Y=y | do(Z)」「X → Y=y | W」「X → Y=y | do(Z), W」）。"""
+    if e.get("name") is not None:
+        return e["name"]
+    X, Y = e["treatment"], e["outcome"]
+    y = e.get("outcome_label", variables[Y]["labels"][-1])
+    key = f"{X} → {Y}={y}"
+    parts = []
+    if e.get("given_do"):
+        parts.append(f"do({', '.join(e['given_do'])})")
+    parts += list(e.get("given") or {})
+    return key + (" | " + ", ".join(parts) if parts else "")
+
+
+def effect_key_errors(variables, effects):
+    """effects の結果のキーが重なる項目のエラーメッセージのリスト（重ならなければ空）。"""
+    seen, errs = {}, []
+    for i, e in enumerate(effects):
+        try:
+            k = effect_key(variables, e)
+            hash(k)
+        except (KeyError, TypeError, IndexError, AttributeError):
+            continue          # 項目自体の誤りは別に報告する
+        if k in seen:
+            errs.append(f"effects[{i}]: 結果のキー「{k}」が effects[{seen[k]}] と重なる"
+                        "（name を付けるか、given_do / given を変えて区別する）")
+        else:
+            seen[k] = i
+    return errs
 
 
 def sensitivity_specs(cfg):

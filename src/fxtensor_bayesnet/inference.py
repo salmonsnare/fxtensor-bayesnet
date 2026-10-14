@@ -10,12 +10,14 @@ from . import network
 from .causal import (
     do_config,
     do_vector,
+    effect_key,
+    effect_key_errors,
     effect_spec,
     sensitivity,
     sensitivity_specs,
     strata,
 )
-from .config import config_hash
+from .config import ConfigError, config_hash
 from .network import Net, self_test_graph_extend, wiring, wiring_size
 
 MAX_JOINT = 2_000_000      # 同時分布の要素数がこれを超えたら祖先集合ごとの計算に切り替え
@@ -297,6 +299,9 @@ def run(cfg, max_joint=MAX_JOINT):
             res["介入"][name] = {"介入内容": {v: as_dict(net.labels[v], do_vector(net.labels[v], s)) for v, s in do.items()},
                                "周辺": {t: as_dict(net.labels[t], a) for t, a in m.items()}}
     if cfg.get("effects"):
+        dup = effect_key_errors(cfg["variables"], cfg["effects"])
+        if dup:     # 黙って上書きしない
+            raise ConfigError("設定エラー:\n  - " + "\n  - ".join(dup))
         res["因果効果"] = {}
         for e in cfg["effects"]:
             e = effect_spec(cfg, e)
@@ -311,7 +316,7 @@ def run(cfg, max_joint=MAX_JOINT):
             t_, c_ = e["treated"], e["control"]
             ace = p_do[t_] - p_do[c_]
             od = None if p_obs[t_] is None or p_obs[c_] is None else p_obs[t_] - p_obs[c_]
-            key = f"{X} → {Y}={y}"
+            key = effect_key(cfg["variables"], e)
             entry = {
                 "処置": X, "結果": Y, "結果のラベル": y, "処置群": t_, "対照群": c_,
                 "P(結果|do(処置))": {x: _r(p, 4) for x, p in p_do.items()},
@@ -320,6 +325,8 @@ def run(cfg, max_joint=MAX_JOINT):
                 "観測上の差": None if od is None else _r(od, 4),
                 "交絡による差(観測上の差−ACE)": None if od is None else _r(od - ace, 4),
             }
+            if e["name"] is not None:
+                entry = {"名前": e["name"], **entry}
             zero = [x for x, p in p_obs.items() if p is None]
             if zero:   # P(X=x)=0 の水準では P(Y | X=x) は未定義（0 ではない）
                 entry["観測確率0の水準"] = zero

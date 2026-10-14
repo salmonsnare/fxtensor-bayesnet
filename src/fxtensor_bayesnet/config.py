@@ -8,6 +8,8 @@ from itertools import product
 
 import numpy as np
 
+from .causal import effect_key_errors
+
 TOL = 1e-6
 
 
@@ -194,6 +196,10 @@ def validate(cfg):
             isinstance(e.get(k) or {}, dict) for k in ("given_do", "given")) else set()
         if both:
             errs.append(f"effects[{i}]: {', '.join(sorted(both))} が given_do と given の両方にある")
+    for i, e in enumerate(effects):
+        if isinstance(e, dict) and "name" in e and (not isinstance(e["name"], str) or not e["name"].strip()):
+            errs.append(f"effects[{i}].name: 空でない文字列が必要")
+    errs += effect_key_errors(V, [e for e in effects if isinstance(e, dict)])
     sens = cfg.get("sensitivity")
     for i, s_ in enumerate(sens if isinstance(sens, list) else [sens] if sens else []):
         if not isinstance(s_, dict) or s_.get("target") not in V:

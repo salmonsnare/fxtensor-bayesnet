@@ -46,7 +46,7 @@ pytest
 Example configs live in `examples/` (they are not part of the PyPI package, so fetch them from the repository).
 
 ```bash
-curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/examples/weather/config.en.json
+curl -o config.json https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/examples/weather/config.en.json
 fxtensor-bayesnet --check                            # defaults to ./config.json
 fxtensor-bayesnet --no-write --md --lang en          # Markdown to stdout
 fxtensor-bayesnet --no-write --plot --lang en --out-dir out/   # figures only, into out/
@@ -99,7 +99,7 @@ A config is a single JSON file. Minimal example:
 | `scenarios` | | Scenario name → `{root variable: replacement prior}`. A base scenario is always included |
 | `observations` | | `{"var", "label", "focus"}`. Computes posteriors given `var=label`. For the `focus` variables it also reports prior→posterior movement (difference, total variation distance TV, KL) and ranks them by movement (defaults to all roots). Instead of `var`/`label`, `{"evidence": {...}, "name": optional}` conditions on several observations jointly and accepts soft evidence (see below) |
 | `interventions` | | Name → `{variable: label or [distribution]}`. do() on **any** variable by graph surgery (its kernel is replaced); reports the marginals of `outputs` |
-| `effects` | | List of `{"treatment", "outcome", "outcome_label"?, "treated"?, "control"?}`. P(outcome \| do(X=x)) and P(outcome \| X=x) for every level, the ACE (treated − control), the observational difference and their gap. Defaults: last label of the outcome, treated = last label, control = first label. Optional `given_do` / `given` give stratified / conditional ACEs (see below) |
+| `effects` | | List of `{"treatment", "outcome", "outcome_label"?, "treated"?, "control"?}`. P(outcome \| do(X=x)) and P(outcome \| X=x) for every level, the ACE (treated − control), the observational difference and their gap. Defaults: last label of the outcome, treated = last label, control = first label. Optional `given_do` / `given` give stratified / conditional ACEs, optional `name` sets the result key (see below) |
 | `sensitivity` | | `{"target", "label"?, "delta"? (0.05), "top"? (10)}` or a list of them. One-at-a-time sensitivity of P(target=label) to every prior and CPT entry |
 | `outputs` | | Variables shown in the result tables (defaults to all non-root variables) |
 
@@ -166,6 +166,7 @@ Does the effect of X depend on another variable Z (effect modification)? Add `gi
 - **`given_do`**: `{Z: [labels]}` — Z is also fixed by intervention. For each stratum z: P(Y=y \| do(X=x), do(Z=z)) for every level x and ACE(z) = P(y \| do(treated), do(z)) − P(y \| do(control), do(z)).
 - **`given`**: `{Z: [labels]}` — conditional ACE: X is fixed by intervention and Z is observed in the intervened model, P(Y=y \| do(X=x), Z=z). A stratum with probability 0 under do(X=x) is undefined (`null`, shown as `—`) and a warning is printed.
 - A value may be a list of labels, one label, or `null` (all labels). Several variables give the combinations of their labels as strata (e.g. `wear=High, load=Low`). Z must differ from the treatment and the outcome, and a variable cannot be in both keys.
+- **Result key (0.11.1)**: an effect is stored under its `name` if given (also kept as `名前` / `name`); otherwise under `X → Y=y`, followed by the stratification when there is one: `X → Y=y | do(Z)` for `given_do`, `X → Y=y | W` for `given`, `X → Y=y | do(Z), W` for both. Effects without `given_do` / `given` keep the plain `X → Y=y` key. So the same (treatment, outcome, outcome_label) can be listed several times with different stratifications. If two effects would still get the same key (e.g. the same `given_do` variable with different labels), `--check` reports a config error and `run()` raises `ConfigError` instead of silently keeping only the last one; give them different `name`s.
 - Each stratum is stored under `層別ACE(given_do)` / `条件付きACE(given)` (`stratified_ace_given_do` / `conditional_ace_given`) of the effect, together with the difference between the last and the first stratum (`層間のACEの差(最後−最初)`, `ace_difference_last_minus_first`). Markdown adds a table per stratification and `effects.png` adds a bar panel of the stratum ACEs (dashed line: overall ACE). Effects without these keys are unchanged.
 
 In the maintenance example the ACE of do(temp) is +1.5 pt when wear is fixed to Low and +20.0 pt when it is fixed to High:
@@ -280,19 +281,19 @@ graph TD
 
 Network structure (`network.png` from `--plot`):
 
-![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/weather_network.png)
+![Weather: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_network.png)
 
 Marginals by scenario (`marginals.png`):
 
-![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/weather_marginals.png)
+![Weather: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_marginals.png)
 
 Bayesian update, prior vs posterior (`updates.png`). For example, observing heavy rain raises "Low approaching" for the pressure pattern from 25% to 67%:
 
-![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/weather_updates.png)
+![Weather: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_updates.png)
 
 Day-over-day change (`diff.png` from `--diff --plot`): the next day, the pressure and humidity priors are revised. Scenarios A and B override the pressure prior (B also humidity), so they change less (B not at all):
 
-![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/weather_diff.png)
+![Weather: change since previous snapshot](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/weather_diff.png)
 
 ### Equipment maintenance (`examples/maintenance/config.en.json`)
 
@@ -326,11 +327,11 @@ graph TD
 
 ```
 
-![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/maintenance_network.png)
+![Maintenance: network structure](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/maintenance_network.png)
 
-![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/maintenance_marginals.png)
+![Maintenance: marginals by scenario](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/maintenance_marginals.png)
 
-![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/maintenance_updates.png)
+![Maintenance: Bayesian update](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/maintenance_updates.png)
 
 Sample output (maintenance, excerpt of `--md --lang en`):
 
@@ -351,7 +352,7 @@ Sample output (maintenance, excerpt of `--md --lang en`):
 
 Observation vs intervention with `interventions`, `effects`, joint and soft evidence and `sensitivity`; see its [README](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/examples/ecology_host_parasitoid/README.md). **All numbers are illustrative placeholders**; the topic is inspired by Coroller-Chouraki et al. (bioRxiv, https://doi.org/10.64898/2026.10.06.757064), but the values are not estimates from that paper.
 
-![Ecology: observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.0/docs/images/en/ecology_effects.png)
+![Ecology: observation vs intervention](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/ecology_effects.png)
 
 ## Result keys
 
