@@ -46,7 +46,7 @@ pytest
 例題の設定は `examples/` にあります（PyPI のパッケージには含まれないので、リポジトリから取得してください）。
 
 ```bash
-curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/examples/weather/config.json
+curl -O https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/examples/weather/config.json
 fxtensor-bayesnet --check                       # 既定はカレントディレクトリの config.json
 fxtensor-bayesnet --no-write --md               # Markdown を標準出力へ
 fxtensor-bayesnet --no-write --plot --out-dir out/   # 図だけ out/ に
@@ -152,6 +152,8 @@ fxtensor-bayesnet --no-write --plot --out-dir out/   # 図だけ out/ に
 ```
 
 介入の結果は、元のネットワークでの切断因子分解（truncated factorization）の einsum と照合します（検算の `介入:切断因子分解との最大差`）。
+
+検算の最大差は、実際に比べたときだけ数値になります。比べていなければ `null`（未検算）で、Markdown にも「未検算」と出ます（0.11.2）。`ancestral` モード（同時分布が 200 万要素超）では全同時分布を作らないので `einsum(全同時)との最大差` は `null` です。また、複数の観測やソフト証拠を含む観測は検算せず、`条件付けの検算を省略した観測`（`conditioning_check_skipped`）に挙げます（`bayesian_inversionの検算を省略した観測`（`inversion_check_skipped`）と同じ扱い）。観測がなければ条件付けの検算も `null` です。
 
 ### 層別 ACE・条件付き ACE（`given_do` / `given`、0.11.0）
 
@@ -352,7 +354,7 @@ graph TD
 
 `interventions`・`effects`・同時／ソフト証拠・`sensitivity` を使った「観測と介入の違い」の例です（英語。[README](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/examples/ecology_host_parasitoid/README.md)）。**数値はすべて例示用の仮の値**です。題材は Coroller-Chouraki et al.（bioRxiv、https://doi.org/10.64898/2026.10.06.757064）を参考にしましたが、値はその論文からの推定ではありません。
 
-![生態学の例：観測と介入](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.1/docs/images/en/ecology_effects.png)
+![生態学の例：観測と介入](https://raw.githubusercontent.com/salmonsnare/fxtensor-bayesnet/v0.11.2/docs/images/en/ecology_effects.png)
 
 ## 結果のキー
 

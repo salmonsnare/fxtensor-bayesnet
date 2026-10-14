@@ -79,7 +79,7 @@ class Engine:
     def __init__(self, net, priors, max_joint=MAX_JOINT):
         self.net, self.priors = net, priors
         self.mode = "joint" if net.joint_size() <= max_joint else "ancestral"
-        self.check_err = 0.0
+        self.check_err = None      # ancestral では全同時分布を作らないので比べない（未検算）
         if self.mode == "joint":
             self.joint, self.names = net.build_joint(priors)
             self.labs = [net.labels[v] for v in self.names]
@@ -197,11 +197,15 @@ def run(cfg, max_joint=MAX_JOINT):
         "シナリオ": {}, "ベイズ更新(基本)": {}, "検算": {},
     }
     checks = {"計算モード": None, "同時分布の要素数": net.joint_size(),
-              "einsum(全同時)との最大差": 0.0, "einsum(祖先集合・周辺)との最大差": 0.0,
-              "einsum(条件付け)との最大差": 0.0, "bayesian_inversionとconditionalizationの最大差": 0.0}
+              "einsum(全同時)との最大差": None, "einsum(祖先集合・周辺)との最大差": None,
+              "einsum(条件付け)との最大差": None, "bayesian_inversionとconditionalizationの最大差": None}
+    # 最大差は、実際に比べたときだけ数値にする。一度も比べていなければ None（未検算。0.0 と区別する）
 
     def upd(key, err):
-        checks[key] = max(checks.get(key, 0.0), float(err))
+        if err is None:
+            return
+        old = checks.get(key)
+        checks[key] = float(err) if old is None else max(old, float(err))
 
     outputs = cfg.get("outputs") or [v for v in net.order if v not in net.roots]
     for name, ov in {"基本": {}, **cfg.get("scenarios", {})}.items():
@@ -217,7 +221,7 @@ def run(cfg, max_joint=MAX_JOINT):
         res["シナリオ"][name] = {"上書き": ov, "周辺": marg}
 
     eng = Engine(net, base_pri, max_joint)
-    skipped_inv = []
+    skipped_inv, skipped_cond = [], []
     for ob in cfg.get("observations", []):
         key, evidence, simple = normalize_observation(ob)
         # ソフト証拠を含むと ev は確率ではなく尤度の期待値 Σ P(x) L(x)（1 を超えうる）なので別のキーにする
@@ -263,6 +267,8 @@ def run(cfg, max_joint=MAX_JOINT):
                     ref = J.sum(axis=tuple(j for j in range(J.ndim) if j != i)) / Z
                     upd("einsum(条件付け)との最大差", np.max(np.abs(a - ref)))
                 del J
+            else:      # ancestral では全同時分布を作らないので、同時／ソフト証拠の検算を省く
+                skipped_cond.append(key)
         post = {w: as_dict(net.labels[w], a) for w, a in raw.items()}
         hard = {w for w, e in evidence.items() if isinstance(e, str)}
         prior_marg = {w: eng.marginal(w) for w in focus}
@@ -276,6 +282,8 @@ def run(cfg, max_joint=MAX_JOINT):
         res["ベイズ更新(基本)"][key] = entry
     if skipped_inv:
         checks["bayesian_inversionの検算を省略した観測"] = skipped_inv
+    if skipped_cond:
+        checks["条件付けの検算を省略した観測"] = skipped_cond
 
     # --- 介入（グラフ手術）---
     def do_marginals(do, targets):
@@ -356,9 +364,10 @@ def run(cfg, max_joint=MAX_JOINT):
             checks[k] = float(f"{checks[k]:.3g}")
     checks["備考"] = "検算はすべて丸め前の値で比較（出力の確率は小数4桁に丸めている）"
     res["検算"] = checks
-    assert checks["einsum(全同時)との最大差"] < 1e-12 and checks["einsum(祖先集合・周辺)との最大差"] < 1e-12
-    assert checks["einsum(条件付け)との最大差"] < 1e-9 and checks["bayesian_inversionとconditionalizationの最大差"] < 1e-9
-    assert checks.get("介入:切断因子分解との最大差", 0.0) < 1e-12
+    for k, tol in (("einsum(全同時)との最大差", 1e-12), ("einsum(祖先集合・周辺)との最大差", 1e-12),
+                   ("einsum(条件付け)との最大差", 1e-9), ("bayesian_inversionとconditionalizationの最大差", 1e-9),
+                   ("介入:切断因子分解との最大差", 1e-12)):
+        assert checks.get(k) is None or checks[k] < tol, (k, checks[k])
     return res
 
 

@@ -3,6 +3,16 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.2] - 2026-10-15
+
+### Fixed
+- Checks reported a max error of `0.0` for comparisons that were never made. In `ancestral` mode the joint/soft
+  evidence cross-check (`einsum(条件付け)との最大差`) and the full-joint check (`einsum(全同時)との最大差`) were skipped
+  but kept their initial `0.0`. A max-error entry is now `null` unless the comparison was actually made (also
+  without observations), observations whose conditioning check was skipped are listed under
+  `条件付けの検算を省略した観測` (`conditioning_check_skipped`), and Markdown states which checks were not run.
+  Posteriors and all values in `joint` mode are unchanged (#26).
+
 ## [0.11.1] - 2026-10-15
 
 ### Fixed
@@ -131,6 +141,7 @@ First public release.
 - Examples: weather and equipment maintenance, each in Japanese and English.
 - README in English and Japanese.
 
+[0.11.2]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.2
 [0.11.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.1
 [0.11.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.0
 [0.10.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.10.1
