@@ -6,7 +6,7 @@ The Japanese documentation is the same manual under ``ja/``: `日本語 <ja/inde
 
 fxtensor-bayesnet is a config-driven inference tool for discrete Bayesian networks, built on
 `fxtensor-salmon <https://github.com/salmonsnare/fxtensor-salmon>`_
-(`documentation <https://salmonsnare.github.io/fxtensor-salmon/>`_).
+(:doc:`documentation <fxtensor-salmon:index>`).
 Assumptions and probabilities live in a JSON file, so they can be revised without changing code.
 A run compares scenarios, updates beliefs from observations, and can answer causal questions
 with the do-operator.
@@ -16,7 +16,8 @@ How a model is computed:
 - Each variable is discrete and takes one of a finite set of labels, such as ``Clear`` / ``Cloudy``.
 - A variable with no parents (a root) has a prior. A child has a conditional probability table:
   each combination of parent labels maps to a distribution over the child (a Markov kernel).
-- The joint is built by composing states and kernels with fxtensor-salmon's ``FXTensor``.
+- The joint is built by composing states and kernels with fxtensor-salmon's
+  :class:`fxtensor_salmon.FXTensor`.
   From it the tool computes marginals per scenario, conditioning on observations, and
   root-cause posteriors via ``bayesian_inversion``.
 - Every run cross-checks library results against a direct NumPy ``einsum``, using unrounded
@@ -39,6 +40,12 @@ How a model is computed:
 
 The package on PyPI is ``fxtensor-bayesnet``. This documentation matches version |release|.
 It is licensed under the MIT License.
+
+.. note::
+
+   When an issue is resolved, add a corresponding TikZ figure to these docs.
+   Keep the TikZ source and the rendered figure in ``docs/_static/figures/``
+   (see ``docs/_static/figures/README.md``) and show the figure in both languages.
 
 .. toctree::
    :maxdepth: 1

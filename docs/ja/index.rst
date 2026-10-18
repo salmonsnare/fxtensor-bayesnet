@@ -6,7 +6,7 @@ fxtensor-bayesnet
 
 fxtensor-bayesnet は、設定ファイル駆動の離散ベイジアンネットワーク推論ツールです。
 `fxtensor-salmon <https://github.com/salmonsnare/fxtensor-salmon>`_
-（`ドキュメント <https://salmonsnare.github.io/fxtensor-salmon/>`_）の上に組まれています。
+（:doc:`ドキュメント <fxtensor-salmon:index>`）の上に組まれています。
 仮定と確率は JSON ファイルに書くので、コードを変えずに見直せます。
 実行すると、シナリオの比較、観測による信念の更新、do 演算による因果の問いに答えます。
 
@@ -15,7 +15,7 @@ fxtensor-bayesnet は、設定ファイル駆動の離散ベイジアンネッ�
 - 各変数は離散で、有限個のラベル（例：``晴れ`` / ``曇り``）をとります。
 - 親を持たない変数（根）には事前分布を書きます。子には条件付き確率表を書きます。
   親のラベルの組合せごとに、子の分布（マルコフ核）が 1 つあります。
-- 同時分布は、fxtensor-salmon の ``FXTensor`` で状態と核を合成して作ります。
+- 同時分布は、fxtensor-salmon の :class:`fxtensor_salmon.FXTensor` で状態と核を合成して作ります。
   そこからシナリオごとの周辺分布、観測による条件付け、``bayesian_inversion`` による根の事後を計算します。
 - 毎回、ライブラリの結果を NumPy の ``einsum`` と丸め前の値で突き合わせます。ずれると実行は止まります。
   :doc:`output` を参照してください。
@@ -36,6 +36,13 @@ fxtensor-bayesnet は、設定ファイル駆動の離散ベイジアンネッ�
 
 PyPI のパッケージ名は ``fxtensor-bayesnet`` です。このドキュメントはバージョン |release| に対応します。
 ライセンスは MIT License です。
+
+.. note::
+
+   Issue を解決したときは、対応する TikZ の図をこのドキュメントに追加します。
+   TikZ のソースと描画した図は ``docs/_static/figures/`` に置きます。
+   詳細は ``docs/_static/figures/README.md`` です。
+   英語版と日本語版の両方に載せます。
 
 .. toctree::
    :maxdepth: 1

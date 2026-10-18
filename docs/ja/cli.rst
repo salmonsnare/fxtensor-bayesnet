@@ -169,6 +169,8 @@
      - 前回のスナップショットからの周辺分布の変化（ポイント）。
      - ``--diff --plot`` で、前回の ``results.json`` があるとき
 
+:doc:`quickstart` に、天気・設備保全・生態学の例で出したこれらのファイルがあります。
+
 日本語を表示できるフォントを、次の順で探します。
 Noto Sans CJK JP、Noto Sans JP、Source Han Sans JP、IPAexGothic、IPAGothic、
 Hiragino Sans、Hiragino Kaku Gothic ProN、Yu Gothic、Meiryo、MS Gothic、

@@ -24,29 +24,14 @@ extensions = [
     "myst_parser",
     "en_docstrings",
 ]
-# The fxtensor-salmon documentation site did not publish objects.inv when these
-# pages were written, so links to it are plain URLs. If that inventory appears,
-# intersphinx is enabled for future cross-references; the prose does not depend on it.
-_SALMON_DOCS = "https://salmonsnare.github.io/fxtensor-salmon/"
+# fxtensor-salmon publishes its inventory under /en/ (the site root has no objects.inv).
+extensions.append("sphinx.ext.intersphinx")
+intersphinx_mapping = {
+    "fxtensor-salmon": ("https://salmonsnare.github.io/fxtensor-salmon/en/", None),
+}
+intersphinx_timeout = 8
 
-
-def _salmon_inventory():
-    import urllib.request
-
-    try:
-        req = urllib.request.Request(_SALMON_DOCS + "objects.inv", method="HEAD")
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            return 200 <= getattr(resp, "status", 0) < 300
-    except Exception:
-        return False
-
-
-if _salmon_inventory():
-    extensions.append("sphinx.ext.intersphinx")
-    intersphinx_mapping = {"fxtensor-salmon": (_SALMON_DOCS, None)}
-    intersphinx_timeout = 8
-
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "_static"]
 # Symlinks inside each language tree, so the paths stay inside the Sphinx source directory.
 templates_path = ["_templates"]
 html_static_path = ["_static"]

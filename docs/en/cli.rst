@@ -170,6 +170,8 @@ Figures
      - Change in marginals, in points, since the previous snapshot.
      - ``--diff --plot`` with a previous ``results.json``
 
+:doc:`quickstart` shows these files for the weather, maintenance, and ecology examples.
+
 A font that can display Japanese is chosen from this list, in order:
 Noto Sans CJK JP, Noto Sans JP, Source Han Sans JP, IPAexGothic, IPAGothic,
 Hiragino Sans, Hiragino Kaku Gothic ProN, Yu Gothic, Meiryo, MS Gothic,

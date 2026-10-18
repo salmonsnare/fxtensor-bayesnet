@@ -2,7 +2,7 @@ include LICENSE README.md README-ja.md CHANGELOG.md
 recursive-include examples *.json *.md *.py
 recursive-include tests *.py
 include docs/make_images.py
-recursive-include docs *.rst *.css *.html *.txt *.py
+recursive-include docs *.rst *.css *.html *.txt *.py *.png *.md
 prune docs/images
 prune docs/_build
 global-exclude __pycache__ *.py[cod] results.json results.md model.mmd
