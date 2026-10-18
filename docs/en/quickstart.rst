@@ -75,12 +75,96 @@ Larger examples in the repository
 ``examples/`` is not part of the PyPI distribution. Fetch it from the
 `repository <https://github.com/salmonsnare/fxtensor-bayesnet>`_.
 
-- ``examples/weather/`` — pressure, humidity, cloud, rain, an outdoor event, and traffic.
-  Japanese ``config.json`` and English ``config.en.json`` use the same numbers.
-- ``examples/maintenance/`` — load, age, maintenance, wear, vibration, bearing temperature,
-  and failure. Again in both languages.
-- ``examples/ecology_host_parasitoid/`` — English only. Interventions, effects, joint and
-  soft evidence, and sensitivity. Every number there is an illustrative placeholder.
+The pictures below are the ones linked from the README. They were generated with
+``python docs/make_images.py`` (needs the ``plot`` extra). Regeneration writes
+``docs/images/`` and ``docs/images/en/``. This site copies them to
+``docs/_static/images/`` so the published pages include the files.
+English pages use the English labels. Every probability in the examples is illustrative.
 
-Figures for those examples are regenerated with ``python docs/make_images.py``
-(needs the ``plot`` extra) into ``docs/images/`` and ``docs/images/en/``.
+Weather
+~~~~~~~
+
+``examples/weather/`` has pressure, humidity, cloud, rain, an outdoor event, and traffic.
+Japanese ``config.json`` and English ``config.en.json`` use the same numbers.
+Scenarios are "A: Typhoon approaching" and "B: Dry spell".
+Observations infer the pressure pattern and humidity from heavy rain, jammed traffic,
+and a cancelled event.
+
+.. figure:: _static/images/en/weather_network.png
+   :alt: Weather example, network structure
+   :width: 100%
+
+   Weather example: network structure (``network.png`` from ``--plot``).
+
+.. figure:: _static/images/en/weather_marginals.png
+   :alt: Weather example, marginals by scenario
+   :width: 100%
+
+   Weather example: marginals by scenario (``marginals.png``).
+
+.. figure:: _static/images/en/weather_updates.png
+   :alt: Weather example, Bayesian update
+   :width: 100%
+
+   Weather example: Bayesian update, prior versus posterior (``updates.png``).
+   Observing heavy rain raises "Low approaching" for the pressure pattern from 25% to 67%.
+
+.. figure:: _static/images/en/weather_diff.png
+   :alt: Weather example, change since the previous snapshot
+   :width: 100%
+
+   Weather example: change since the previous snapshot (``diff.png`` from ``--diff --plot``).
+   The next day, the pressure and humidity priors are revised.
+   Scenarios A and B override the pressure prior (B also overrides humidity),
+   so they change less. B does not change.
+
+Equipment maintenance
+~~~~~~~~~~~~~~~~~~~~~
+
+``examples/maintenance/`` has load, age, maintenance, wear, vibration, bearing temperature,
+and failure, again in both languages.
+Scenarios are "A: Peak season (high load)" and "B: Stronger maintenance".
+Observations infer load, age, and maintenance from abnormal vibration, a shutdown,
+and elevated temperature.
+``wear`` is not in ``outputs``, so the structure diagram draws it in grey.
+
+.. figure:: _static/images/en/maintenance_network.png
+   :alt: Maintenance example, network structure
+   :width: 100%
+
+   Maintenance example: network structure (``network.png``).
+
+.. figure:: _static/images/en/maintenance_marginals.png
+   :alt: Maintenance example, marginals by scenario
+   :width: 100%
+
+   Maintenance example: marginals by scenario (``marginals.png``).
+
+.. figure:: _static/images/en/maintenance_updates.png
+   :alt: Maintenance example, Bayesian update
+   :width: 100%
+
+   Maintenance example: Bayesian update (``updates.png``).
+
+Ecology
+~~~~~~~
+
+``examples/ecology_host_parasitoid/`` is English only.
+It uses interventions, effects, joint and soft evidence, and sensitivity.
+Every number there is an illustrative placeholder.
+``ecology_sensitivity.png`` is the figure from that example's README.
+The project README shows the effects figure.
+
+.. figure:: _static/images/en/ecology_effects.png
+   :alt: Ecology example, observation versus intervention
+   :width: 100%
+
+   Ecology example: observation versus intervention (``effects.png``).
+   The numbers are illustrative placeholders.
+
+.. figure:: _static/images/en/ecology_sensitivity.png
+   :alt: Ecology example, sensitivity tornado chart
+   :width: 100%
+
+   Ecology example: sensitivity tornado chart (``sensitivity.png``).
+   The numbers are illustrative placeholders.

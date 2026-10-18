@@ -79,11 +79,94 @@
 ``examples/`` は PyPI の配布物には入りません。
 `リポジトリ <https://github.com/salmonsnare/fxtensor-bayesnet>`_ から取得してください。
 
-- ``examples/weather/`` — 気圧、湿度、雲、降水、屋外イベント、交通。
-  日本語の ``config.json`` と英語の ``config.en.json`` は数値が同じです。
-- ``examples/maintenance/`` — 負荷、経過年数、保守、摩耗、振動、軸受温度、故障。同じく両言語です。
-- ``examples/ecology_host_parasitoid/`` — 英語のみ。介入、因果効果、同時・ソフト証拠、感度分析。
-  数値はすべて説明用の仮の値です。
+下の図は README が参照しているものです。
+``python docs/make_images.py`` （``plot`` 追加依存が必要）で再生成します。
+再生成先は ``docs/images/`` と ``docs/images/en/`` です。
+このサイト用のコピーは ``docs/_static/images/`` にあり、公開ページに含まれます。
+日本語のページは日本語ラベルの図を使います。例の確率はすべて説明用です。
 
-これらの図は ``python docs/make_images.py``（``plot`` 追加依存が必要）で再生成し、
-``docs/images/`` と ``docs/images/en/`` に置きます。
+天気
+~~~~
+
+``examples/weather/`` は気圧、湿度、雲、降水、屋外イベント、交通です。
+日本語の ``config.json`` と英語の ``config.en.json`` は数値が同じです。
+シナリオは「A:台風接近」と「B:乾燥した晴天続き」です。
+観測は、大雨・渋滞・中止から気圧配置と湿度を逆算します。
+
+.. figure:: _static/images/ja/weather_network.png
+   :alt: 天気の例のネットワーク構造
+   :width: 100%
+
+   天気の例：ネットワーク構造（``--plot`` の ``network.png``）。
+
+.. figure:: _static/images/ja/weather_marginals.png
+   :alt: 天気の例の周辺分布
+   :width: 100%
+
+   天気の例：周辺分布のシナリオ比較（``marginals.png``）。
+
+.. figure:: _static/images/ja/weather_updates.png
+   :alt: 天気の例のベイズ更新
+   :width: 100%
+
+   天気の例：ベイズ更新の事前と事後（``updates.png``）。
+   「大雨」を観測すると、気圧配置の「低気圧接近」が 25% から 67% に上がります。
+
+.. figure:: _static/images/ja/weather_diff.png
+   :alt: 天気の例の前回からの変化量
+   :width: 100%
+
+   天気の例：前回からの変化量（``--diff --plot`` の ``diff.png``）。
+   翌日に気圧配置と湿度の事前分布を見直した例です。
+   A と B は気圧配置をシナリオで上書きし、B は湿度も上書きします。
+   そのため変化は小さく、B は変化しません。
+
+設備保全
+~~~~~~~~
+
+``examples/maintenance/`` は負荷、経過年数、保守、摩耗、振動、軸受温度、故障です。同じく両言語です。
+シナリオは「A:繁忙期（高負荷）」と「B:保守体制の強化」です。
+観測は、振動の異常、停止、温度の上昇から負荷・年数・保守を逆算します。
+``wear`` （部品摩耗）は ``outputs`` に無い中間変数なので、構造図では灰色です。
+
+.. figure:: _static/images/ja/maintenance_network.png
+   :alt: 設備保全の例のネットワーク構造
+   :width: 100%
+
+   設備保全の例：ネットワーク構造（``network.png``）。
+
+.. figure:: _static/images/ja/maintenance_marginals.png
+   :alt: 設備保全の例の周辺分布
+   :width: 100%
+
+   設備保全の例：周辺分布のシナリオ比較（``marginals.png``）。
+
+.. figure:: _static/images/ja/maintenance_updates.png
+   :alt: 設備保全の例のベイズ更新
+   :width: 100%
+
+   設備保全の例：ベイズ更新（``updates.png``）。
+
+生態学
+~~~~~~
+
+``examples/ecology_host_parasitoid/`` は英語のみです。
+介入、因果効果、同時・ソフト証拠、感度分析を使います。
+数値はすべて説明用の仮の値です。
+図の文字も英語です。
+``ecology_sensitivity.png`` はその例の README の図です。
+プロジェクトの README が載せているのは因果効果の図です。
+
+.. figure:: _static/images/en/ecology_effects.png
+   :alt: 生態学の例の観測と介入
+   :width: 100%
+
+   生態学の例：観測と介入（``effects.png``）。
+   数値は説明用の仮の値です。
+
+.. figure:: _static/images/en/ecology_sensitivity.png
+   :alt: 生態学の例の感度分析
+   :width: 100%
+
+   生態学の例：感度分析のトルネード図（``sensitivity.png``）。
+   数値は説明用の仮の値です。
