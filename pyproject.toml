@@ -44,9 +44,15 @@ dev = [
     "pytest",
     "matplotlib>=3.5",
 ]
+docs = [
+    "sphinx>=8,<9",
+    "furo>=2024.8.6",
+    "myst-parser>=4,<5",
+]
 
 [project.urls]
 Homepage = "https://github.com/salmonsnare/fxtensor-bayesnet"
+Documentation = "https://salmonsnare.github.io/fxtensor-bayesnet/"
 Repository = "https://github.com/salmonsnare/fxtensor-bayesnet"
 Issues = "https://github.com/salmonsnare/fxtensor-bayesnet/issues"
 Changelog = "https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/CHANGELOG.md"

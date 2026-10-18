@@ -85,6 +85,7 @@ def _save(fig, path, dpi):
 # (1) 構造図
 # ---------------------------------------------------------------------------
 def node_kinds(cfg):
+    """変数 → ``root`` / ``middle`` / ``output``。outputs に無い非根は middle。"""
     outputs = set(cfg.get("outputs") or [v for v in cfg["variables"] if v not in cfg["priors"]])
     return {v: "root" if v in cfg["priors"] else "output" if v in outputs else "middle"
             for v in cfg["variables"]}
@@ -149,6 +150,7 @@ def _text_width(s, size_pt, bold=False):
 
 
 def plot_network(cfg, path, dpi=150, title=None, lang="ja"):
+    """ネットワーク構造図を path に書き、保存したパスを返す。"""
     plt = _mpl()
     from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Patch
     from matplotlib.path import Path
@@ -307,6 +309,7 @@ def _grouped_bars(ax, labels, series, colors, annotate=True, axes_width_in=None,
 
 
 def plot_marginals(res, cfg, path, dpi=150, ncols=2, lang="ja"):
+    """出力変数の周辺分布（シナリオ比較）を path に書き、保存したパスを返す。"""
     plt = _mpl()
     V = cfg["variables"]
     scen = list(res["シナリオ"])
@@ -342,6 +345,7 @@ def _height_pt(text_artist):
 
 
 def plot_updates(res, cfg, path, dpi=150, lang="ja"):
+    """観測ごとの注目変数の事前・事後を path に書く。描く観測が無ければ None。"""
     plt = _mpl()
     V = cfg["variables"]
     # 確率 0 で更新できなかった観測は描くものがないので省く（結果の JSON と Markdown には記録される）
@@ -410,6 +414,7 @@ def diff_deltas(old_res, new_res):
 
 
 def plot_diff(old_res, new_res, cfg, path, dpi=150, old_label=None, new_label=None, lang="ja"):
+    """前回から今回への周辺分布の変化量（pt）を path に書く。比べるシナリオが無ければ None。"""
     plt = _mpl()
     V = cfg["variables"]
     deltas = diff_deltas(old_res, new_res)
@@ -498,6 +503,7 @@ def _plot_strata(ax, key, e, s, kind, V, lang):
 
 
 def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
+    """因果効果（観測と介入、層別 ACE）を path に書く。effects が無ければ None。"""
     effs = res.get("因果効果")
     if not effs:
         return None
@@ -541,6 +547,7 @@ def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
 # (6) 感度分析（トルネード図）
 # ---------------------------------------------------------------------------
 def plot_sensitivity(res, cfg, path, dpi=150, lang="ja"):
+    """感度分析のトルネード図を path に書く。sensitivity が無ければ None。"""
     sens = res.get("感度分析")
     if not sens:
         return None

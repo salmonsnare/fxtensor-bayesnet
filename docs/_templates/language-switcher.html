@@ -1,0 +1,9 @@
+<nav class="lang-switch" aria-label="{{ 'Language' if language == 'en' else '言語' }}">
+  {%- if language == 'ja' -%}
+  <a href="{{ '../' * (pagename.count('/') + 1) }}{{ pagename }}.html">English</a>
+  <span class="lang-current" aria-current="page">日本語</span>
+  {%- else -%}
+  <span class="lang-current" aria-current="page">English</span>
+  <a href="{{ '../' * pagename.count('/') }}ja/{{ pagename }}.html">日本語</a>
+  {%- endif -%}
+</nav>
