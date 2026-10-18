@@ -2,6 +2,8 @@
 
 [English](README.md) | **日本語**
 
+**ドキュメント:** <https://salmonsnare.github.io/fxtensor-bayesnet/ja/>（[English](https://salmonsnare.github.io/fxtensor-bayesnet/)）
+
 設定ファイル駆動の離散ベイジアンネットワーク推論ツール（[fxtensor-salmon](https://github.com/salmonsnare/fxtensor-salmon) 使用）。
 
 ## 概要

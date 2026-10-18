@@ -16,6 +16,7 @@ class Net:
     """設定から作るベイジアンネットワーク（各子変数の条件付き確率表 = マルコフ核）。"""
 
     def __init__(self, cfg):
+        """設定から変数・ラベル・核を組み立てる。変数が 52 個を超えると ValueError。"""
         self.cfg = cfg
         self.order = topo_order(cfg)
         if len(self.order) > len(string.ascii_letters):
@@ -49,6 +50,7 @@ class Net:
         return [v for v in self.order if v in out]
 
     def joint_size(self):
+        """全変数の同時分布の要素数（各変数のラベル数の積）。"""
         return int(np.prod([len(self.labels[v]) for v in self.order]))
 
     # --- einsum による直接計算（検算・メモリ節約経路） ---
@@ -105,6 +107,7 @@ class Net:
 
     # --- ライブラリによる組み立て ---
     def prior_state(self, priors):
+        """根の事前分布を FXTensor の状態（tensor_product）にする。priors は {根: 確率のリスト}。"""
         st = None
         for r in self.roots:
             s = FXTensor([[], [self.labels[r]]], data=np.asarray(priors[r], float))

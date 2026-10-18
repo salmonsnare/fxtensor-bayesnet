@@ -38,6 +38,7 @@ from .report import render_markdown, render_mermaid
 
 
 def build_parser():
+    """コマンドラインの ArgumentParser を返す。"""
     ap = argparse.ArgumentParser(prog="fxtensor-bayesnet", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -67,6 +68,7 @@ def _plot_module():
 
 
 def main(argv=None):
+    """CLI を実行し終了コードを返す。0 成功、1 スナップショットの衝突、2 設定・入力のエラー、3 図の依存不足。"""
     a = build_parser().parse_args(argv)
     base = os.path.dirname(os.path.abspath(a.config))
     out_dir = a.out_dir or base

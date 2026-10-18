@@ -2,6 +2,8 @@
 
 **English** | [日本語](https://github.com/salmonsnare/fxtensor-bayesnet/blob/main/README-ja.md)
 
+**Documentation:** <https://salmonsnare.github.io/fxtensor-bayesnet/> ([日本語](https://salmonsnare.github.io/fxtensor-bayesnet/ja/))
+
 A config-driven inference tool for discrete Bayesian networks, built on [fxtensor-salmon](https://github.com/salmonsnare/fxtensor-salmon).
 
 ## Overview

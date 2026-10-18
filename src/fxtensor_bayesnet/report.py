@@ -9,6 +9,7 @@ from .i18n import obs_text, scenario_name, t
 
 
 def render_markdown(res, cfg, lang="ja"):
+    """結果の Markdown を返す。lang は ja または en（見出しの言語。結果辞書は日本語キーのまま読む）。"""
     V = cfg["variables"]
     hz = f"{t(lang, 'horizon_sep')}{res['ホライズン']}" if res.get("ホライズン") else ""
     L = [t(lang, "result_title", as_of=res["基準日"], horizon=hz), ""]
@@ -136,6 +137,7 @@ def _md_sensitivity(res, lang):
 
 
 def render_mermaid(cfg):
+    """ネットワーク構造の mermaid（``graph TD``）。根・中間・出力を色分けする。"""
     V = cfg["variables"]
 
     def node(v):
@@ -162,4 +164,5 @@ def render_mermaid(cfg):
 
 
 def safe(v):
+    """mermaid のノード id。英数字と ``_`` 以外は短いハッシュに置き換える。"""
     return v if re.fullmatch(r"[A-Za-z0-9_]+", v) else "n_" + hashlib.md5(v.encode()).hexdigest()[:6]

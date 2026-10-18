@@ -128,6 +128,7 @@ TEXT = {
 
 
 def t(lang, key, **kw):
+    """表示文言 ``TEXT[lang][key]`` を返す。kw があれば format する。未対応の lang は ValueError。"""
     if lang not in TEXT:
         raise ValueError(f"unsupported language: {lang} (choose from {', '.join(LANGS)})")
     s = TEXT[lang][key]

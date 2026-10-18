@@ -30,6 +30,7 @@ def _r(x, nd):
 
 
 def as_dict(labels, arr, nd=4):
+    """ラベルをキーに、確率を小数 nd 桁へ丸めた辞書にする（-0.0 は 0.0）。"""
     return {lab: _r(x, nd) for lab, x in zip(labels, arr)}
 
 
@@ -76,7 +77,13 @@ def normalize_observation(ob):
 
 
 class Engine:
+    """1 組の事前分布に対する周辺・条件付け・要因の逆算。
+
+    mode は同時分布の要素数が max_joint 以下なら ``joint``、超えると ``ancestral``。
+    """
+
     def __init__(self, net, priors, max_joint=MAX_JOINT):
+        """net と根の事前分布 priors（{変数: 確率のリスト}）でエンジンを作る。"""
         self.net, self.priors = net, priors
         self.mode = "joint" if net.joint_size() <= max_joint else "ancestral"
         self.check_err = None      # ancestral では全同時分布を作らないので比べない（未検算）

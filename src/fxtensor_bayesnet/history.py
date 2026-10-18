@@ -15,6 +15,7 @@ def zero(x, nd=1):
 
 
 def snapshot_dir(cfg, history_dir):
+    """スナップショットのフォルダパス（``history_dir/as_of``）。"""
     return os.path.join(history_dir, cfg["as_of"])
 
 
@@ -44,6 +45,10 @@ def resolve_diff_path(path):
 
 
 def snapshot(cfg, res, history_dir, force=False):
+    """設定と結果（日本語キー）を ``history_dir/<as_of>/`` に書く。
+
+    既存で force でなければ FileExistsError。書いたフォルダを返す。
+    """
     d = check_snapshot_free(cfg, history_dir, force)
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "config.json"), "w", encoding="utf-8") as f:
@@ -64,6 +69,7 @@ def previous_snapshot(history_dir, as_of):
 
 
 def diff_configs(old, new):
+    """2 つの設定の変更点を行のリストで返す。変更が無ければ「（設定の変更なし）」。"""
     out = []
     ov, nv = old.get("variables", {}), new.get("variables", {})
     for v in sorted(set(ov) | set(nv)):
@@ -128,6 +134,7 @@ def diff_configs(old, new):
 
 
 def diff_results(old, new, threshold_pt=0.1):
+    """結果の差が threshold_pt（pt）以上の行を返す。変化が無ければ「（結果の変化なし）」。"""
     out = []
     for sc, r in new.get("シナリオ", {}).items():
         o = old.get("シナリオ", {}).get(sc)

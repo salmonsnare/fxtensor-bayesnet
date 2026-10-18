@@ -21,6 +21,9 @@ results.md
 model.mmd
 history/
 
+# Sphinx
+docs/_build/
+
 # エディタ・OS
 .vscode/
 .idea/
