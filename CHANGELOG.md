@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.3] - 2026-10-18
+
+### Fixed
+- `effects.png` stratum-ACE panels (`given_do` / `given`): labels on negative bars were drawn below the bar, so they
+  overlapped the overall-ACE note in the lower right and the overall-ACE dashed line cut through the digits. A negative
+  label now sits inside the bar, near the end toward 0 (just above 0 when the bar is too short to hold it). The overall
+  ACE is the legend entry of that dashed line, placed above the axes. Value labels keep a white background where the
+  line passes behind them (#33).
+
 ## [0.11.2] - 2026-10-15
 
 ### Fixed
@@ -141,6 +150,7 @@ First public release.
 - Examples: weather and equipment maintenance, each in Japanese and English.
 - README in English and Japanese.
 
+[0.11.3]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.3
 [0.11.2]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.2
 [0.11.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.1
 [0.11.0]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.0

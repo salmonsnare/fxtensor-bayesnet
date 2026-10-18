@@ -1,5 +1,5 @@
 """設定ファイル駆動の離散ベイジアンネットワーク推論（fxtensor-salmon 使用）。"""
-__version__ = "0.11.2"
+__version__ = "0.11.3"
 
 from .config import ConfigError, config_hash, dump_config, load_config, topo_order, validate  # noqa: E402
 from .causal import do_config  # noqa: E402

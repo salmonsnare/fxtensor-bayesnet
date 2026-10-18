@@ -161,7 +161,7 @@ Figures
      - Prior vs posterior of the focus variables, with total variation. Impossible observations are omitted.
      - When at least one possible observation was updated
    * - ``effects.png``
-     - Observed P(Y \| X=x) next to P(Y \| do(X=x)), annotated with the observational difference and the ACE. A level with probability 0 is marked undefined instead of drawn as 0. Stratum ACEs get their own panels. If the result key is not the plain ``X → Y=y``, the panel title includes that key.
+     - Observed P(Y \| X=x) next to P(Y \| do(X=x)), annotated with the observational difference and the ACE. A level with probability 0 is marked undefined instead of drawn as 0. Stratum ACEs get their own panels: one bar per stratum, the value inside a negative bar (just above 0 if the bar is too short), and the overall ACE as a dashed line named in that panel's legend. If the result key is not the plain ``X → Y=y``, the panel title includes that key.
      - When ``effects`` is set
    * - ``sensitivity.png``
      - Tornado chart.
