@@ -467,6 +467,84 @@ def _effect_panels(effs):
     return out
 
 
+# 数値ラベルの白背景。全体 ACE の破線が数字を横切っても読めるようにする（#33）
+_VALUE_BBOX = {"facecolor": "white", "edgecolor": "none", "pad": 0.35}
+
+
+def _title_above_legend(ax, title):
+    """タイトルを、軸の上に置いた凡例のさらに上へ上げる（棒や数値ラベルと重ならないように）。"""
+    fig = ax.figure
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    leg = ax.get_legend()
+    leg_top = leg.get_window_extent(renderer).y1
+    axes_top = ax.get_window_extent(renderer).y1
+    pad_pt = max(leg_top - axes_top, 0) * 72.0 / fig.dpi + 6
+    ax.set_title(title, fontsize=9.5, pad=pad_pt)
+
+
+def _adjust_strata_labels(ax):
+    """層別 ACE の数値ラベルを、描画後の軸の大きさに合わせて置き直す。
+
+    正の棒は棒の上（従来どおり）。負の棒は棒の内側、端の少し 0 寄り。
+    棒がラベルより短いときは 0 の線の上側。どちらも軸の中に収める。
+    ピクセル高さは tight_layout の後でないと決まらないので、保存の直前に呼ぶ。
+    """
+    labels = getattr(ax, "_bn_strata_labels", None)
+    if not labels:
+        return
+    fig = ax.figure
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    axes_bb = ax.get_window_extent(renderer)
+    inv = ax.transData.inverted()
+    gap = 4.0
+    zero_y = ax.transData.transform((0.0, 0.0))[1]
+    placed = []
+    for text in labels:
+        v = text._bn_value
+        bb = text.get_window_extent(renderer)
+        anchor_y = ax.transData.transform(text.get_position())[1]
+        below = anchor_y - bb.y0
+        height, width = bb.height, bb.width
+        bar_bb = text._bn_bar.get_window_extent(renderer)
+        lo, hi = min(bar_bb.y0, bar_bb.y1), max(bar_bb.y0, bar_bb.y1)
+        if v >= 0:
+            target = hi + gap
+            if target + height > axes_bb.y1 - gap:
+                target = axes_bb.y1 - gap - height
+        else:
+            target = lo + gap                         # 棒の端の少し上（内側、0 の方向）
+            if target + height > zero_y - gap:        # 棒が短くて内側に収まらない
+                target = zero_y + gap                 # 0 の線の上側
+            if target + height > axes_bb.y1 - gap:
+                target = axes_bb.y1 - gap - height
+            if target < lo:                           # 負の棒の端より下には置かない
+                target = lo + gap
+        cx = ax.transData.transform((text.get_position()[0], 0.0))[0]
+        half = width / 2.0
+        if cx - half < axes_bb.x0 + 1:
+            cx = axes_bb.x0 + 1 + half
+        if cx + half > axes_bb.x1 - 1:
+            cx = axes_bb.x1 - 1 - half
+        x, y = inv.transform((cx, target + below))
+        text.set_position((x, y))
+        text.set_ha("center")
+        text.set_va("bottom")
+        placed.append((text, lo if v < 0 else None))
+    # アンカーと箱のずれを 1 回だけ吸収する（白背景の pad ぶん）
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for text, lo in placed:
+        if lo is None:
+            continue
+        bb = text.get_window_extent(renderer)
+        if bb.y0 < lo:
+            x, y = text.get_position()
+            dy = inv.transform((0.0, lo - bb.y0 + gap))[1] - inv.transform((0.0, 0.0))[1]
+            text.set_position((x, y + dy))
+
+
 def _plot_strata(ax, key, e, s, kind, V, lang):
     import numpy as np
     names = list(s["層"])
@@ -477,16 +555,25 @@ def _plot_strata(ax, key, e, s, kind, V, lang):
     bars = ax.bar(x, vals, 0.6, color=color)
     finite = [v for v in vals if not np.isnan(v)] + [e["ACE"] * 100, 0.0]
     lim = max(abs(min(finite)), abs(max(finite)), 1.0) * 1.3
+    labels = []
     for b, xc, a in zip(bars, x, aces):
         if a is None:
             ax.text(xc, 0, t(lang, "zero_level_bar"), ha="center", va="bottom", fontsize=6.5, color="#777777")
         else:
-            ax.text(xc, a * 100 + (lim * 0.03 if a >= 0 else -lim * 0.03), f"{a*100:+.1f}",
-                    ha="center", va="bottom" if a >= 0 else "top", fontsize=7.5, color="#333333")
+            # 位置は _adjust_strata_labels が確定する。ここは測定用の仮置き
+            txt = ax.text(xc, 0.0, f"{a * 100:+.1f}", ha="center", va="bottom", fontsize=7.5, color="#333333",
+                          zorder=5, clip_on=False, bbox=dict(_VALUE_BBOX))
+            txt._bn_value = a * 100
+            txt._bn_bar = b
+            labels.append(txt)
+    ax._bn_strata_labels = labels
     ax.axhline(0, color="#333333", lw=0.8)
-    ax.axhline(e["ACE"] * 100, color="#555555", lw=0.9, ls="--", label=None)
-    ax.text(0.99, 0.02, "- - " + t(lang, "overall_ace", ace=f"{e['ACE'] * 100:+.1f}"), transform=ax.transAxes,
-            ha="right", va="bottom", fontsize=7, color="#555555")
+    guide = ax.axhline(e["ACE"] * 100, color="#555555", lw=0.9, ls="--", zorder=2)
+    note = t(lang, "overall_ace", ace=f"{e['ACE'] * 100:+.1f}")
+    leg = ax.legend([guide], [note], loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False, fontsize=7,
+                    borderaxespad=0, handlelength=1.8, handletextpad=0.45, borderpad=0.2)
+    for lt in leg.get_texts():
+        lt.set_color("#555555")
     ax.set_ylim(-lim, lim)
     ax.set_xticks(x)
     ax.set_xticklabels([_wrap_label(n, 0.92 * 3.4 / len(names)) for n in names], fontsize=8.5)
@@ -499,7 +586,7 @@ def _plot_strata(ax, key, e, s, kind, V, lang):
     z = ", ".join(s["条件"])
     head = t(lang, "strat_do_title" if kind == "層別ACE(given_do)" else "strat_obs_title", z=z)
     top = key if e.get("名前") else f"{V[X].get('name', X)} → {V[Y].get('name', Y)}={e['結果のラベル']}"
-    ax.set_title(f"{top}\n{head}", fontsize=9.5)
+    _title_above_legend(ax, f"{top}\n{head}")
 
 
 def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
@@ -540,6 +627,8 @@ def plot_effects(res, cfg, path, dpi=150, ncols=3, lang="ja"):
     fig.legend(h, lab, loc="lower center", ncol=2, frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.01))
     fig.suptitle(t(lang, "effects_title"), fontsize=12)
     fig.tight_layout(rect=(0, 0.06, 1, 0.95))
+    for ax in axes.flat:
+        _adjust_strata_labels(ax)
     return _save(fig, path, dpi)
 
 
