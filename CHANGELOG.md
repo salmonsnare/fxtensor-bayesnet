@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.4] - 2026-11-10
+
+### Fixed
+- Observing a root variable (`{"var": <root>, "label": ...}`) stopped `run()` and the CLI with `ValueError: Output
+  character ... appeared more than once in the output`. The kernel from all roots to the observation used for the
+  `bayesian_inversion` cross-check (`Net.contract(..., free_roots=True)`) wrote the observed root's einsum letter
+  twice in the output. A root target of that kernel is now the identity (delta) kernel, so root observations work and
+  are cross-checked like any other observation. Results of non-root observations are unchanged (#137).
+
 ## [0.11.3] - 2026-10-18
 
 ### Fixed
@@ -150,6 +159,7 @@ First public release.
 - Examples: weather and equipment maintenance, each in Japanese and English.
 - README in English and Japanese.
 
+[0.11.4]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.4
 [0.11.3]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.3
 [0.11.2]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.2
 [0.11.1]: https://github.com/salmonsnare/fxtensor-bayesnet/releases/tag/v0.11.1

@@ -83,11 +83,29 @@ class Net:
             for r in self.roots:
                 ops.append(np.ones(len(self.labels[r])))
                 subs.append(self.letter[r])
+        # free_roots のとき、根である target の軸は「根の値をそのまま写す」デルタ核になる。
+        # 出力に同じ文字を 2 回は書けないので、根以外の targets で縮約してからデルタで広げる（#137）
+        root_targets = [t for t in targets if free_roots and t in self.roots]
+        rest = [t for t in targets if t not in root_targets]
         out = "".join(self.letter[r] for r in self.roots) if free_roots else ""
-        out += "".join(self.letter[t] for t in targets)
+        out += "".join(self.letter[t] for t in rest)
         if not ops:
             raise ValueError("empty query")
-        return np.einsum(",".join(subs) + "->" + out, *ops, optimize=True)
+        res = np.einsum(",".join(subs) + "->" + out, *ops, optimize=True)
+        if not root_targets:
+            return res
+        nr = len(self.roots)
+        it = iter(range(nr, nr + len(rest)))
+        src = [next(it) if t in rest else None for t in targets]
+        # 軸の並び: 根の全体, targets（根の target の位置には長さ 1 の軸を入れる）
+        res = res.reshape(res.shape[:nr] + tuple(res.shape[s] if s is not None else 1 for s in src))
+        for k, t in enumerate(targets):
+            if src[k] is None:
+                n, i = len(self.labels[t]), self.roots.index(t)
+                shape = [1] * res.ndim
+                shape[i] = shape[nr + k] = n
+                res = res * np.eye(n).reshape(shape)
+        return res
 
     def einsum_query(self, priors, targets, free_roots=False):
         """祖先集合だけを使い、targets の同時分布（free_roots=True なら 根→targets の核）を einsum で直接計算。"""
